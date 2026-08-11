@@ -14,6 +14,8 @@ Live in-process viewer on the egui shell ([10](10-visualization.md)): terrain + 
 
 **Exit met:** you can watch the world run, steer time, and follow the overseers.
 
+> **Post-M0.5 course:** the next arc is the [economy program](18-economy.md) (E0–E4) interleaved with [presence](17-presence.md) phases (P1–P4) — E0 then P1 first. The M1 text below predates tiles/works and stands as the original intent; its "fun to watch unattended" exit criterion still governs.
+
 ## M1 — The autopilot nation
 
 Economy with clearing markets; buildings v1 (modules, visible construction); institutions v1 (ministries, governors); typed directives issued by scripts; simple military + battles v1 (aggregate resolution + basic timeline rendering); hydration v1 with task-atom AI. The [invention grammar](03-invention-grammar.md) lands on paper here — type system + historical test suite designed before implementation hardens.

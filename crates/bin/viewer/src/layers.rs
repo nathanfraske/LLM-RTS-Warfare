@@ -1,6 +1,7 @@
 //! Map textures: world terrain, the nation-territory overlay, and the
 //! person-scale local map render.
 
+use directive_schema::WorkKind;
 use eframe::egui::ColorImage;
 use local_map::LocalMap;
 use map_export::palette;
@@ -62,26 +63,62 @@ pub fn local_image(map: &LocalMap) -> ColorImage {
         };
         rgb.extend_from_slice(&[color.0, color.1, color.2]);
     }
-    // Camp huts: a small ring of brown blocks around the camp center.
     if let Some((cx, cy)) = map.camp {
-        const HUTS: [(i64, i64); 5] = [(0, 0), (4, 1), (-4, 2), (1, -4), (-2, 4)];
-        let bound = i64::from(map.size);
-        for (hx, hy) in HUTS {
+        draw_camp(&mut rgb, map, cx, cy);
+    }
+    ColorImage::from_rgb([size, size], &rgb)
+}
+
+/// The camp and its completed works: huts, tilled fields, granary.
+fn draw_camp(rgb: &mut [u8], map: &LocalMap, cx: u32, cy: u32) {
+    const HUTS: [(i64, i64); 5] = [(0, 0), (4, 1), (-4, 2), (1, -4), (-2, 4)];
+    const EXTRA: [(i64, i64); 4] = [(8, 8), (-8, 8), (8, -8), (-9, -2)];
+    let size = i64::from(map.size);
+    let mut paint = |x: i64, y: i64, color: (u8, u8, u8)| {
+        if x >= 0 && y >= 0 && x < size && y < size {
+            let at = ((y as usize) * map.size as usize + x as usize) * 3;
+            rgb[at] = color.0;
+            rgb[at + 1] = color.1;
+            rgb[at + 2] = color.2;
+        }
+    };
+    let (cx, cy) = (i64::from(cx), i64::from(cy));
+    for (hx, hy) in HUTS {
+        for dy in 0..2i64 {
+            for dx in 0..2i64 {
+                paint(cx + hx + dx, cy + hy + dy, (122, 86, 54));
+            }
+        }
+    }
+    if map.works.contains(&WorkKind::Farmstead) {
+        for dy in -10i64..=10 {
+            for dx in 9i64..=30 {
+                let tilled = dy.rem_euclid(2) == 0;
+                let color = if tilled {
+                    (128, 96, 58)
+                } else {
+                    (150, 128, 80)
+                };
+                paint(cx + dx, cy + dy, color);
+            }
+        }
+    }
+    if map.works.contains(&WorkKind::Granary) {
+        for dy in -12i64..=-8 {
+            for dx in -12i64..=-8 {
+                paint(cx + dx, cy + dy, (96, 70, 44));
+            }
+        }
+    }
+    if map.works.contains(&WorkKind::Dwellings) {
+        for (hx, hy) in EXTRA {
             for dy in 0..2i64 {
                 for dx in 0..2i64 {
-                    let x = i64::from(cx) + hx + dx;
-                    let y = i64::from(cy) + hy + dy;
-                    if x >= 0 && y >= 0 && x < bound && y < bound {
-                        let at = ((y as usize) * size + x as usize) * 3;
-                        rgb[at] = 122;
-                        rgb[at + 1] = 86;
-                        rgb[at + 2] = 54;
-                    }
+                    paint(cx + hx + dx, cy + hy + dy, (122, 86, 54));
                 }
             }
         }
     }
-    ColorImage::from_rgb([size, size], &rgb)
 }
 
 fn lerp(a: (u8, u8, u8), b: (u8, u8, u8), t: f32) -> (u8, u8, u8) {

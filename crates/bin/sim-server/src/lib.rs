@@ -131,17 +131,32 @@ impl World {
         let tick = self.clock.advance();
         self.apply_due(tick);
         if is_month_boundary(tick) {
+            for nation in &mut self.nations.nations {
+                nations::mandate::tick_month(&mut nation.mandate, &mut nation.autonomy);
+            }
+            {
+                let WorldNations { works, owner, .. } = &mut self.nations;
+                works.tick_month(owner, tick, &mut self.log);
+            }
             let drives: Vec<CohortDrive> = self
                 .cohorts
                 .entries()
                 .map(|(key, _)| {
                     let s = &self.table[key.species.0 as usize];
+                    let works = &self.nations.works;
                     CohortDrive {
                         birth_rate: Quantity::from_num(BASE_BIRTH)
-                            * species::milli(s.birth_mod_milli),
+                            * species::milli(s.birth_mod_milli)
+                            * works.birth_mult(key.tile.0),
                         death_rate: Quantity::from_num(BASE_DEATH)
                             * species::milli(s.death_mod_milli),
-                        capacity: nations::capacity(&self.genesis.fields, key.tile.0 as usize, s),
+                        capacity: nations::capacity(
+                            &self.genesis.fields,
+                            key.tile.0 as usize,
+                            s,
+                            works,
+                        ),
+                        famine_threshold: works.famine_threshold(key.tile.0),
                     }
                 })
                 .collect();

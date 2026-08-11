@@ -37,6 +37,18 @@ pub enum Event {
         nation: NationId,
         reason: String,
     },
+    WorkCommissioned {
+        tick: Tick,
+        nation: NationId,
+        tile: TileId,
+        work: directive_schema::WorkKind,
+    },
+    WorkCompleted {
+        tick: Tick,
+        nation: NationId,
+        tile: TileId,
+        work: directive_schema::WorkKind,
+    },
     TileSettled {
         tick: Tick,
         nation: NationId,

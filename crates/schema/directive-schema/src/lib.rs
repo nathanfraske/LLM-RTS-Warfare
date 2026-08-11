@@ -14,15 +14,28 @@ pub enum Stance {
     Expansive,
 }
 
+/// A commissionable project (docs/16-mandate-and-works.md). Effects live in
+/// the sim; this is the policy vocabulary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WorkKind {
+    Farmstead,
+    Granary,
+    Dwellings,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Directive {
-    /// Christen the nation — names flow into reports and the world log.
+    /// Christen the nation — names flow into reports and the world log. Free.
     Name { name: String },
-    /// Set the expansion posture.
+    /// Set the expansion posture. Costs mandate.
     SetStance { stance: Stance },
     /// Decree settlement of a specific frontier tile (must border territory).
+    /// Costs mandate.
     Settle { tile: u32 },
+    /// Commission a work on an owned tile; institutions build it over months.
+    /// Costs mandate.
+    Commission { tile: u32, work: WorkKind },
 }
 
 /// One logged council decision: apply `directive` to `nation` at `tick`.

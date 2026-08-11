@@ -4,6 +4,8 @@
 
 pub mod autopilot;
 pub mod directives;
+pub mod mandate;
+pub mod works;
 
 use directive_schema::Stance;
 use sim_events::rng;
@@ -23,6 +25,10 @@ pub struct Nation {
     pub stance: Stance,
     /// Overseer-decreed settlement target, consumed when settled.
     pub decreed_target: Option<TileId>,
+    /// The people's readiness to be commanded (docs/16-mandate-and-works.md).
+    pub mandate: Quantity,
+    /// Friction from direct rule: raises costs, slows mandate regen.
+    pub autonomy: Quantity,
 }
 
 #[derive(Debug, Default)]
@@ -32,6 +38,8 @@ pub struct WorldNations {
     pub owner: Vec<Option<NationId>>,
     /// Unordered nation pairs that have made contact.
     pub met: std::collections::BTreeSet<(u32, u32)>,
+    /// Commissioned works across all tiles.
+    pub works: works::Works,
 }
 
 impl WorldNations {
@@ -58,16 +66,17 @@ pub fn fitness(fields: &WorldFields, tile: usize, s: &Species) -> Quantity {
     species::tile_fitness(s, fields.temperature[tile], fields.moisture[tile])
 }
 
-/// Carrying capacity of one world tile for a species: climate fit × soil.
-/// Integer-exact fixed-point (sim-path authoritative).
+/// Carrying capacity of one world tile for a species: climate fit × soil,
+/// grown by completed works. Integer-exact fixed-point (sim-path authoritative).
 #[must_use]
-pub fn capacity(fields: &WorldFields, tile: usize, s: &Species) -> Quantity {
+pub fn capacity(fields: &WorldFields, tile: usize, s: &Species, works: &works::Works) -> Quantity {
     let fit = fitness(fields, tile, s);
     let soil = Quantity::from_num(fields.cell_fertility[tile]) / Quantity::from_num(255);
-    Quantity::from_num(260)
+    let base = Quantity::from_num(260)
         + Quantity::from_num(1450)
             * fit
-            * (Quantity::from_num(0.35) + soil * Quantity::from_num(0.65))
+            * (Quantity::from_num(0.35) + soil * Quantity::from_num(0.65));
+    base * works.capacity_mult(tile as u32)
 }
 
 /// Spawn `count` nations at well-separated, species-fit habitable tiles.
@@ -84,10 +93,12 @@ pub fn spawn(
         nations: Vec::new(),
         owner: vec![None; cells],
         met: std::collections::BTreeSet::new(),
+        works: works::Works::default(),
     };
     let habitable: Vec<usize> = (0..cells)
         .filter(|&t| tiles::habitable(fields, t))
         .collect();
+    let starting_mandate = Quantity::from_num(mandate::STARTING_MANDATE);
     for i in 0..count {
         let s = &table[(i as usize) % table.len()];
         let mut best: Option<(i128, u32)> = None;
@@ -126,6 +137,8 @@ pub fn spawn(
             seat: TileId(seat),
             stance: Stance::Steady,
             decreed_target: None,
+            mandate: starting_mandate,
+            autonomy: Quantity::ZERO,
         });
         log.push(Event::NationSpawned {
             nation: id,

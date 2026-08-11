@@ -93,7 +93,7 @@ pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<TileId>) {
                 tile: t,
                 species: nation.species,
             });
-            let cap = nations::capacity(fields, tile, s);
+            let cap = nations::capacity(fields, tile, s, &world.nations.works);
             ui.label(format!("Held by {} ({})", nation.name, s.name));
             ui.label(format!("Population {pop:.0} / capacity {cap:.0}"));
         }

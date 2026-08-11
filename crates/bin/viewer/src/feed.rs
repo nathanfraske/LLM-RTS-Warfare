@@ -5,7 +5,7 @@ use eframe::egui::Color32;
 use readouts::year_month;
 use sim_events::Event;
 use sim_server::World;
-use world_schema::NationId;
+use world_schema::{NationId, Tick};
 
 pub enum Kind {
     Overseer,
@@ -31,101 +31,148 @@ pub struct Line {
     pub kind: Kind,
 }
 
+fn nation_name(world: &World, n: NationId) -> String {
+    world
+        .nations
+        .nations
+        .iter()
+        .find(|x| x.id == n)
+        .map_or_else(|| format!("nation {}", n.0), |x| x.name.clone())
+}
+
+fn stamp(tick: Tick) -> String {
+    let (y, m) = year_month(tick);
+    format!("Y{y} M{m}")
+}
+
 /// Describe an event for the feed; `None` for events too noisy to show.
 #[must_use]
 pub fn describe(event: &Event, world: &World) -> Option<Line> {
-    let name = |n: NationId| {
-        world
-            .nations
-            .nations
-            .iter()
-            .find(|x| x.id == n)
-            .map_or_else(|| format!("nation {}", n.0), |x| x.name.clone())
-    };
-    match event {
-        Event::NationSpawned { nation, seat, .. } => Some(Line {
-            text: format!("Y1 M1 · {} settle tile {}", name(*nation), seat.0),
-            kind: Kind::Worldly,
-        }),
+    overseer_line(event, world).or_else(|| worldly_line(event, world))
+}
+
+/// Overseer actions: the directive-driven events, highlighted in gold.
+fn overseer_line(event: &Event, world: &World) -> Option<Line> {
+    let (text, kind) = match event {
         Event::NationNamed {
             tick,
             nation,
             name: new_name,
-        } => {
-            let (y, m) = year_month(*tick);
-            Some(Line {
-                text: format!(
-                    "Y{y} M{m} · overseer names nation {} \"{new_name}\"",
-                    nation.0
-                ),
-                kind: Kind::Overseer,
-            })
-        }
+        } => (
+            format!(
+                "{} · overseer names nation {} \"{new_name}\"",
+                stamp(*tick),
+                nation.0
+            ),
+            Kind::Overseer,
+        ),
         Event::StanceChanged {
             tick,
             nation,
             stance,
-        } => {
-            let (y, m) = year_month(*tick);
-            Some(Line {
-                text: format!("Y{y} M{m} · {} sets a {stance:?} posture", name(*nation)),
-                kind: Kind::Overseer,
-            })
-        }
-        Event::SettlementDecreed { tick, nation, tile } => {
-            let (y, m) = year_month(*tick);
-            Some(Line {
-                text: format!(
-                    "Y{y} M{m} · {} decrees the settling of tile {}",
-                    name(*nation),
-                    tile.0
-                ),
-                kind: Kind::Overseer,
-            })
-        }
+        } => (
+            format!(
+                "{} · {} sets a {stance:?} posture",
+                stamp(*tick),
+                nation_name(world, *nation)
+            ),
+            Kind::Overseer,
+        ),
+        Event::SettlementDecreed { tick, nation, tile } => (
+            format!(
+                "{} · {} decrees the settling of tile {}",
+                stamp(*tick),
+                nation_name(world, *nation),
+                tile.0
+            ),
+            Kind::Overseer,
+        ),
+        Event::WorkCommissioned {
+            tick,
+            nation,
+            tile,
+            work,
+        } => (
+            format!(
+                "{} · {} commissions a {work:?} on tile {}",
+                stamp(*tick),
+                nation_name(world, *nation),
+                tile.0
+            ),
+            Kind::Overseer,
+        ),
         Event::DirectiveRejected {
             tick,
             nation,
             reason,
-        } => {
-            let (y, m) = year_month(*tick);
-            Some(Line {
-                text: format!("Y{y} M{m} · {} decree rejected: {reason}", name(*nation)),
-                kind: Kind::Alarm,
-            })
-        }
+        } => (
+            format!(
+                "{} · {} decree rejected: {reason}",
+                stamp(*tick),
+                nation_name(world, *nation)
+            ),
+            Kind::Alarm,
+        ),
+        _ => return None,
+    };
+    Some(Line { text, kind })
+}
+
+/// World events: what the simulation itself did.
+fn worldly_line(event: &Event, world: &World) -> Option<Line> {
+    let (text, kind) = match event {
+        Event::NationSpawned { nation, seat, .. } => (
+            format!(
+                "Y1 M1 · {} settle tile {}",
+                nation_name(world, *nation),
+                seat.0
+            ),
+            Kind::Worldly,
+        ),
         Event::TileSettled {
             tick,
             nation,
             from,
             tile,
             settlers,
-        } => {
-            let (y, m) = year_month(*tick);
-            Some(Line {
-                text: format!(
-                    "Y{y} M{m} · {settlers:.0} settlers of {} leave tile {} and found tile {}",
-                    name(*nation),
-                    from.0,
-                    tile.0
-                ),
-                kind: Kind::Worldly,
-            })
-        }
-        Event::NationsMet { tick, a, b } => {
-            let (y, m) = year_month(*tick);
-            Some(Line {
-                text: format!("Y{y} M{m} · first contact: {} meets {}", name(*a), name(*b)),
-                kind: Kind::Contact,
-            })
-        }
-        Event::Famine { tick, tile, .. } => {
-            let (y, m) = year_month(*tick);
-            Some(Line {
-                text: format!("Y{y} M{m} · hunger in tile {}", tile.0),
-                kind: Kind::Alarm,
-            })
-        }
-        Event::WorldGenerated { .. } | Event::MonthClosed { .. } => None,
-    }
+        } => (
+            format!(
+                "{} · {settlers:.0} settlers of {} leave tile {} and found tile {}",
+                stamp(*tick),
+                nation_name(world, *nation),
+                from.0,
+                tile.0
+            ),
+            Kind::Worldly,
+        ),
+        Event::WorkCompleted {
+            tick,
+            nation,
+            tile,
+            work,
+        } => (
+            format!(
+                "{} · the {work:?} of {} on tile {} stands complete",
+                stamp(*tick),
+                nation_name(world, *nation),
+                tile.0
+            ),
+            Kind::Worldly,
+        ),
+        Event::NationsMet { tick, a, b } => (
+            format!(
+                "{} · first contact: {} meets {}",
+                stamp(*tick),
+                nation_name(world, *a),
+                nation_name(world, *b)
+            ),
+            Kind::Contact,
+        ),
+        Event::Famine { tick, tile, .. } => (
+            format!("{} · hunger in tile {}", stamp(*tick), tile.0),
+            Kind::Alarm,
+        ),
+        _ => return None,
+    };
+    Some(Line { text, kind })
 }

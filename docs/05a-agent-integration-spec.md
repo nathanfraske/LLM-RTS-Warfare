@@ -63,6 +63,15 @@ M3 additions per [12-sovereignty](12-sovereignty.md): `channels()` (diplomatic c
 
 A lightweight per-nation event stream (SSE) — *not* an MCP tool: event kind, severity, reference id. Harnesses/brokers subscribe and decide when to wake the agent; `set_alerts` adds custom triggers. Platforms that can't subscribe fall back to polled `situation_report` on a cadence. The sim never blocks on any of this ([01 — two clocks](01-architecture.md)).
 
+## 2.6 Operating modes
+
+Two first-class ways to couple agents to the clock; a world is configured for one:
+
+- **Free-Run** (default): the sim never waits. Directives land at whatever tick the agent produces them. Think-speed is a strategic property — fast local models hold frequent shallow councils, big models are smarter per decision but a sim-month passes between them. The emergent speed-vs-depth meta is a feature; smarter models compensate for latency with better decisions.
+- **Council Rounds** (turn-based): the world advances in fixed spans (configurable — e.g., one or two sim-years), then **pauses**. Every agent receives its report and a decision window — unlimited thinking time, or a wall-clock budget the operator sets — and submits a batch of directives scheduled anywhere inside the coming span. The span then executes with **no mid-turn input**; directives fire at their scheduled ticks; the next pause follows. Simultaneous submission, identical information timing — fair across model speeds by construction, and fully deterministic (the batch is just replay input).
+
+Today's file-based council loop ([14](14-bands-and-councils.md)) *is* Council Rounds — replay N ticks, everyone reads, everyone appends, replay onward. At M2 the same contract runs over MCP: the round pause becomes the wake signal, the batch becomes directive tool calls with in-span ticks. Free-Run requires the wake feed (§2.5) and arrives with it.
+
 ## 3. The session contract
 
 Every wake, regardless of provider, assembles the same shape:

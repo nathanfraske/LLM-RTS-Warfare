@@ -31,6 +31,8 @@ pub struct CohortDrive {
     pub death_rate: Quantity,
     /// Carrying capacity; crowding beyond it turns growth into famine.
     pub capacity: Quantity,
+    /// Crowding level past which famine strikes (granaries raise it).
+    pub famine_threshold: Quantity,
 }
 
 /// Aggregate demographic result of one closed month.
@@ -153,7 +155,7 @@ impl Cohorts {
             *pop = (*pop + births - deaths).max(Quantity::ZERO);
             delta.births += births;
             delta.deaths += deaths;
-            if crowd > Quantity::from_num(1.15) {
+            if crowd > drive.famine_threshold {
                 delta.famines.push(key);
             }
         }
@@ -178,6 +180,7 @@ mod tests {
                 birth_rate: Quantity::from_num(0.006),
                 death_rate: Quantity::from_num(0.0045),
                 capacity: Quantity::from_num(capacity),
+                famine_threshold: Quantity::from_num(1.15),
             };
             n
         ]

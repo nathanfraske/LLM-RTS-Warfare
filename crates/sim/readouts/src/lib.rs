@@ -52,7 +52,15 @@ pub fn nation_report(
         "\nPeople: {} · Stance: {:?} · Seat: tile {}",
         s.name, nation.stance, nation.seat.0
     );
+    let _ = writeln!(
+        out,
+        "Mandate: {:.1}/10 · Autonomy: {:.0}% (directive costs ×{:.2})",
+        nation.mandate,
+        nation.autonomy,
+        Quantity::ONE + nation.autonomy / Quantity::from_num(60)
+    );
     territory_section(&mut out, nation_id, world, fields, s, all_cohorts);
+    works_section(&mut out, nation_id, world);
     frontier_section(&mut out, nation_id, world, fields, s);
     known_peoples_section(&mut out, nation_id, world, fields, table);
 
@@ -64,13 +72,38 @@ pub fn nation_report(
     let _ = writeln!(
         out,
         "\n## Council directives\n\nAppend JSON objects to the directive log \
-         (applied at their tick; current tick is {}). Examples:\n\n```json\n\
+         (applied at their tick; current tick is {}). Paid directives spend mandate \
+         (docs/16): Name free · SetStance 1 · Settle 2 · Commission 3, all scaled by \
+         autonomy. Works: Farmstead, Granary, Dwellings. Examples:\n\n```json\n\
          {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Name\", \"name\": \"...\" }} }}\n\
          {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"SetStance\", \"stance\": \"Expansive\" }} }}\n\
-         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Settle\", \"tile\": <frontier id> }} }}\n```",
-        now.0, now.0, nation_id.0, now.0, nation_id.0, now.0, nation_id.0
+         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Settle\", \"tile\": <frontier id> }} }}\n\
+         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Commission\", \"tile\": <owned id>, \"work\": \"Farmstead\" }} }}\n```",
+        now.0, now.0, nation_id.0, now.0, nation_id.0, now.0, nation_id.0, now.0, nation_id.0
     );
     out
+}
+
+fn works_section(out: &mut String, nation_id: NationId, world: &WorldNations) {
+    let _ = writeln!(out, "\n## Works\n");
+    let mut any = false;
+    for t in world.owned_tiles(nation_id) {
+        for kind in world.works.completed(t.0) {
+            let _ = writeln!(out, "- tile {}: {kind:?} (complete)", t.0);
+            any = true;
+        }
+        for state in world.works.in_progress(t.0) {
+            let _ = writeln!(
+                out,
+                "- tile {}: {:?} (building, {} months left)",
+                t.0, state.kind, state.months_left
+            );
+            any = true;
+        }
+    }
+    if !any {
+        let _ = writeln!(out, "None commissioned yet.");
+    }
 }
 
 /// Omniscient spectator summary.
@@ -142,7 +175,7 @@ fn territory_section(
             species: nation.species,
         });
         total += pop;
-        let cap = nations::capacity(fields, t.0 as usize, s);
+        let cap = nations::capacity(fields, t.0 as usize, s, &world.works);
         let pressure = if cap > Quantity::ZERO {
             (pop * Quantity::from_num(100) / cap).to_num::<i64>()
         } else {
@@ -181,8 +214,9 @@ fn frontier_section(
     frontier.sort_unstable();
     frontier.dedup();
     // Agents get the best candidates, not an unbounded wall of rows.
-    frontier
-        .sort_by_key(|&t| std::cmp::Reverse(nations::capacity(fields, t as usize, s).to_bits()));
+    frontier.sort_by_key(|&t| {
+        std::cmp::Reverse(nations::capacity(fields, t as usize, s, &world.works).to_bits())
+    });
     let shown = frontier.len().min(FRONTIER_ROWS);
     for &t in &frontier[..shown] {
         let fit = nations::fitness(fields, t as usize, s);
@@ -190,7 +224,7 @@ fn frontier_section(
             out,
             "| {t} | {:?} | {:.0} | {fit:.2} | {} |",
             tiles::label(fields, t as usize),
-            nations::capacity(fields, t as usize, s),
+            nations::capacity(fields, t as usize, s, &world.works),
             water_note(fields, t as usize),
         );
     }

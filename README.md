@@ -37,6 +37,9 @@ See [01a-foundation](docs/01a-foundation.md) for bootstrap from a bare machine.
 | [13-worldgen](docs/13-worldgen.md) | Dawn-of-time world generation — fields not biomes, hydrology, procedural flora |
 | [14-bands-and-councils](docs/14-bands-and-councils.md) | Sentient nations v1 — band autopilot, directives, fogged reports, the council loop |
 | [15-multiscale-maps](docs/15-multiscale-maps.md) | World tiles + local maps — provinces are tiles; every tile opens to a person-scale map |
+| [16-mandate-and-works](docs/16-mandate-and-works.md) | The price of direct rule — mandate, autonomy friction, commissioned works |
+| [17-presence](docs/17-presence.md) | Person-scale real time — 1s presence ticks, task loops, conservation feedback |
+| [18-economy](docs/18-economy.md) | The economy program — conserved goods, needs, labor, chains, trade (phases E0–E4) |
 
 ## Stack (decided)
 

@@ -50,7 +50,7 @@ pub fn tick_month(
             if pop < Quantity::from_num(120) {
                 continue;
             }
-            let cap = crate::capacity(fields, t.0 as usize, s);
+            let cap = crate::capacity(fields, t.0 as usize, s, &world.works);
             let crowd = if cap > Quantity::ZERO {
                 pop / cap
             } else {

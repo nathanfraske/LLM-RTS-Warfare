@@ -4,6 +4,7 @@
 //! discarded freely, identical every visit. Adjacent tiles agree at their
 //! edges because detail noise is keyed by global cell coordinates.
 
+use directive_schema::WorkKind;
 use flora::{FloraMap, GrowthForm, NO_FLORA};
 use sim_events::rng;
 use sim_events::{SystemId, WorldSeed};
@@ -29,6 +30,8 @@ pub struct LocalMap {
     pub tree: Vec<bool>,
     /// Camp center when the tile is settled.
     pub camp: Option<(u32, u32)>,
+    /// Completed works on this tile, for rendering.
+    pub works: Vec<WorkKind>,
 }
 
 /// Generate the local map for `tile`. `populated` places the camp.
@@ -39,6 +42,7 @@ pub fn generate(
     flora: &FloraMap,
     tile: TileId,
     populated: bool,
+    works: &[WorkKind],
 ) -> LocalMap {
     let world = fields.grid();
     let t = tile.0 as usize;
@@ -94,6 +98,11 @@ pub fn generate(
     }
 
     let camp = populated.then(|| place_camp(&water, &mut tree));
+    if let Some((cx, cy)) = camp
+        && works.contains(&WorkKind::Farmstead)
+    {
+        clear_farm_plot(&mut tree, cx, cy);
+    }
 
     LocalMap {
         size: LOCAL_SIZE,
@@ -102,6 +111,20 @@ pub fn generate(
         veg,
         tree,
         camp,
+        works: works.to_vec(),
+    }
+}
+
+/// Tilled fields need open ground east of the camp.
+fn clear_farm_plot(tree: &mut [bool], cx: u32, cy: u32) {
+    let size = i64::from(LOCAL_SIZE);
+    for dy in -10i64..=10 {
+        for dx in 9i64..=30 {
+            let (x, y) = (i64::from(cx) + dx, i64::from(cy) + dy);
+            if x >= 0 && y >= 0 && x < size && y < size {
+                tree[(y as usize) * LOCAL_SIZE as usize + x as usize] = false;
+            }
+        }
     }
 }
 
@@ -221,8 +244,8 @@ mod tests {
         let tile = (0..fields.grid().cells())
             .find(|&t| world_map::tiles::habitable(&fields, t))
             .expect("habitable tile exists");
-        let a = generate(seed, &fields, &flora, TileId(tile as u32), true);
-        let b = generate(seed, &fields, &flora, TileId(tile as u32), true);
+        let a = generate(seed, &fields, &flora, TileId(tile as u32), true, &[]);
+        let b = generate(seed, &fields, &flora, TileId(tile as u32), true, &[]);
         assert_eq!(a.elevation, b.elevation);
         assert_eq!(a.water, b.water);
         assert_eq!(a.tree, b.tree);
@@ -237,7 +260,7 @@ mod tests {
         let fields = WorldFields::generate(seed, 96);
         let flora = flora::settle::settle(seed, &fields, 24);
         if let Some(tile) = (0..fields.grid().cells()).find(|&t| fields.water[t] == Water::River) {
-            let map = generate(seed, &fields, &flora, TileId(tile as u32), false);
+            let map = generate(seed, &fields, &flora, TileId(tile as u32), false, &[]);
             let river = map.water.iter().filter(|w| **w == Water::River).count();
             assert!(
                 river > 200,
