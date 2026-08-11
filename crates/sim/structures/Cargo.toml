@@ -1,5 +1,5 @@
 [package]
-name = "nations"
+name = "structures"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,16 +8,12 @@ publish.workspace = true
 [dependencies]
 world-schema = { workspace = true }
 tuning = { workspace = true }
-directive-schema = { workspace = true }
-policy = { workspace = true }
-knowledge = { workspace = true }
-structures = { workspace = true }
+world-map = { workspace = true }
 regolith = { workspace = true }
 geology = { workspace = true }
+
+[dev-dependencies]
 sim-events = { workspace = true }
-world-map = { workspace = true }
-cohorts = { workspace = true }
-species = { workspace = true }
 
 [lints]
 workspace = true

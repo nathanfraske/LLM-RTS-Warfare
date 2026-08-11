@@ -2,6 +2,7 @@
 //! and carrying capacity (docs/14-bands-and-councils.md, docs/15-multiscale-maps.md).
 //! The monthly autopilot lives in `autopilot`; overseer directives in `directives`.
 
+mod aims;
 pub mod autopilot;
 pub mod directives;
 pub mod mandate;

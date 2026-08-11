@@ -244,7 +244,7 @@ fn draw_camp(rgb: &mut [u8], map: &LocalMap, cx: u32, cy: u32) {
             }
         }
     }
-    if map.works.iter().any(|w| w == "farmstead") {
+    if map.works.iter().any(|w| w.contains("field-works")) {
         for dy in -10i64..=10 {
             for dx in 9i64..=30 {
                 let tilled = dy.rem_euclid(2) == 0;
@@ -257,14 +257,14 @@ fn draw_camp(rgb: &mut [u8], map: &LocalMap, cx: u32, cy: u32) {
             }
         }
     }
-    if map.works.iter().any(|w| w == "granary") {
+    if map.works.iter().any(|w| w.contains("store-house")) {
         for dy in -12i64..=-8 {
             for dx in -12i64..=-8 {
                 paint(cx + dx, cy + dy, (96, 70, 44));
             }
         }
     }
-    if map.works.iter().any(|w| w == "dwellings") {
+    if map.works.iter().any(|w| w.contains("hearth-hall")) {
         for (hx, hy) in EXTRA {
             for dy in 0..2i64 {
                 for dx in 0..2i64 {

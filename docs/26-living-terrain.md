@@ -33,6 +33,10 @@ Slow field passes along `drains_to`, all integer, all monthly-or-slower:
 
 The sim clock already counts hours; the sky finally uses them. **Day and night**: a light tint driven by the hour, dawn and dusk ramps, night depth set by the **moon** — a `tuning::Sky` period, full moons silvering the map, new moons going truly dark. **Seasonal ground**: the terrain texture re-renders with the months — snowpack whitens the heights and the snowline walks the contours; browning follows the growth gate. **Rivers flow**: motes stream along `drains_to`, faster where accumulation is high. **The sea moves**: wave-pulse at the coasts, and a slow tidal breathing keyed to the moon clock — the same clock that will drive tidal mechanics if they ever earn a ledger entry. Later slices: rain and snowfall visible at both scales, floods as spectacle, local maps inheriting all of it.
 
-## 5. Guards
+## 5. The burning season (landed)
+
+Where fuel, drought, and an ignition meet, the land **burns**: lava lights its borders, dry lightning rarely finds parched tinder, and the fire spreads month by month — twice as eagerly downwind, twice again through drought — until rain, snowpack, water, or bare ground starves it. The burn eats the green (the herds and the gatherers feel it through the ledgers that already exist), sweeps settled tiles at a cost in people, and leaves scars the regrowth reheals at the pace the growth gate allows. Flames render live on the map; the scars persist in the terrain's own colors. Deferred, slots ready: creatures with burning humors ([23](23-bodies-and-substances.md) volatile carriers) lighting the ground where they bleed, once wounds spill at world scale; fire as a weapon when war lands.
+
+## 6. Guards
 
 No atmosphere cells, no fluid solver, no per-drop water: fields, passes, and derived light — the same shape as everything above the floor. Every number in `tuning::{Seasons, Weather, Sky}`. Species climate *niches* stay judged against the annual baseline (a niche is a way of life, not a month); the seasons act through food, snow, and water, which is how winter actually kills. And the one-sentence test holds all the way down: "the pass flooded because the snow went early", "the delta feeds them because the mountains are washing into it."

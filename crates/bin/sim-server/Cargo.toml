@@ -14,6 +14,7 @@ knowledge = { workspace = true }
 climate = { workspace = true }
 regolith = { workspace = true }
 geology = { workspace = true }
+wildfire = { workspace = true }
 sim-clock = { workspace = true }
 sim-events = { workspace = true }
 world-map = { workspace = true }

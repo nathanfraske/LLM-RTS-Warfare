@@ -140,7 +140,7 @@ impl Economy {
                 t as usize,
                 &tun.subsistence,
                 &tun.ecology,
-                &tun.society,
+                &tun.structures,
                 &tun.weather,
                 &tun.ground,
             );
@@ -149,11 +149,8 @@ impl Economy {
             let need = workers * Quantity::from_num(tun.subsistence.food_per_head);
             let eaten = entry.stock.min(need);
             entry.stock -= eaten;
-            let cap = if world.works.has_granary(t) {
-                Quantity::from_num(tun.subsistence.store_granary)
-            } else {
-                Quantity::from_num(tun.subsistence.store_base)
-            };
+            let cap = Quantity::from_num(tun.subsistence.store_base)
+                + world.works.store_bonus(t, &tun.structures);
             entry.stock = (entry.stock * Quantity::from_num(tun.subsistence.store_keep)).min(cap);
 
             let nutrition = if need > Quantity::ZERO {

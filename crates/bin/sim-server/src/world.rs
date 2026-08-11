@@ -15,7 +15,7 @@ use regolith::Regolith;
 use sim_clock::{SimClock, is_month_boundary};
 use sim_events::{Event, EventLog, WorldSeed};
 use tuning::Tuning;
-use world_map::tiles;
+use wildfire::Blaze;
 use world_schema::{Quantity, Tick};
 
 use crate::{Genesis, RunConfig, genesis};
@@ -36,6 +36,8 @@ pub struct World {
     pub climate: Climate,
     /// The ground itself: composition, weathering, wash (docs/27).
     pub regolith: Regolith,
+    /// Fire in the world (docs/26): what is burning right now.
+    pub blaze: Blaze,
     pub economy: Economy,
     pub log: EventLog,
     pub table: &'static [species::Species],
@@ -76,6 +78,7 @@ impl World {
         let flora_live = genesis.flora.density.clone();
         let sky = Climate::genesis(&genesis.fields, &tuning.weather, &tuning.seasons);
         let ground = Regolith::genesis(&genesis.fields, &genesis.flora.density, &tuning.ground);
+        let blaze = Blaze::new(genesis.fields.grid().cells());
         let wild = Fauna::genesis(
             seed,
             &genesis.fields,
@@ -84,20 +87,7 @@ impl World {
             &tuning.bodies,
         );
         let cells = genesis.fields.grid().cells();
-        log.push(Event::WorldGenerated {
-            land_tiles: genesis.fields.land_cells(),
-            habitable_tiles: u32::try_from(
-                (0..cells)
-                    .filter(|&t| tiles::habitable(&genesis.fields, t))
-                    .count(),
-            )
-            .expect("count fits u32"),
-            flora_species: u16::try_from(genesis.flora.species.len())
-                .expect("species count fits u16"),
-            fauna_species: u16::try_from(wild.species.len()).expect("species count fits u16"),
-            cohorts: u32::try_from(all_cohorts.len()).expect("cohort count fits u32"),
-            population: all_cohorts.total_population(),
-        });
+        crate::reporting::log_genesis(&genesis, &wild, &all_cohorts, &mut log);
         let knowledge = WorldKnowledge::new(cells, nations.nations.iter().map(|n| n.id));
         let mut entries = config.directives.clone();
         entries.sort_by_key(|e| e.tick); // stable: same-tick entries keep input order
@@ -110,6 +100,7 @@ impl World {
             flora_live,
             climate: sky,
             regolith: ground,
+            blaze,
             economy: Economy::default(),
             log,
             table,
@@ -218,7 +209,7 @@ impl World {
                 CohortDrive {
                     birth_rate: Quantity::from_num(soc.base_birth)
                         * species::milli(s.birth_mod_milli)
-                        * works.birth_mult(key.tile.0, soc),
+                        * works.birth_mult(key.tile.0, &self.tuning.structures),
                     death_rate: Quantity::from_num(soc.base_death)
                         * species::milli(s.death_mod_milli),
                     nutrition: food
@@ -284,9 +275,11 @@ impl World {
                 &self.genesis.fields,
                 &self.registry,
                 &mut self.knowledge,
+                &self.regolith,
+                &self.genesis.geology,
+                &self.flora_live,
                 &mut self.log,
-                &self.tuning.society,
-                &self.tuning.exploration,
+                &self.tuning,
             );
             self.next_entry += 1;
         }

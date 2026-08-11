@@ -19,15 +19,21 @@ pub(crate) fn works(out: &mut String, nation_id: NationId, world: &WorldNations)
     let _ = writeln!(out, "\n## Works\n");
     let mut any = false;
     for t in world.owned_tiles(nation_id) {
-        for work in world.works.completed(t.0) {
-            let _ = writeln!(out, "- tile {}: {work} (complete)", t.0);
+        for b in world.works.completed(t.0) {
+            let _ = writeln!(
+                out,
+                "- tile {}: {} (standing, integrity {}%)",
+                t.0,
+                b.design.name,
+                u32::from(b.integrity) * 100 / 1000
+            );
             any = true;
         }
         for state in world.works.in_progress(t.0) {
             let _ = writeln!(
                 out,
-                "- tile {}: {} (building, {} months left)",
-                t.0, state.work, state.months_left
+                "- tile {}: {} (raising, {} months left)",
+                t.0, state.design.name, state.months_left
             );
             any = true;
         }

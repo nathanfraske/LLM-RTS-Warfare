@@ -8,13 +8,16 @@
 
 use std::collections::BTreeMap;
 
+use crate::aims::{check_params, check_target};
 use crate::{WorldNations, mandate, registry};
 use directive_schema::{Directive, DirectiveEntry};
+use geology::Geology;
 use knowledge::WorldKnowledge;
-use policy::{ActionDef, PolicyValue, Registry, TargetKind};
+use policy::{PolicyValue, Registry};
+use regolith::Regolith;
 use sim_events::{Event, EventLog};
-use tuning::{Exploration, Society};
-use world_map::{WorldFields, tiles};
+use tuning::Tuning;
+use world_map::WorldFields;
 use world_schema::{NationId, Quantity, Tick, TileId};
 
 /// Validate, price, and apply one logged directive at its scheduled tick.
@@ -25,10 +28,13 @@ pub fn apply(
     fields: &WorldFields,
     reg: &Registry,
     known: &mut WorldKnowledge,
+    ground: &Regolith,
+    rocks: &Geology,
+    flora_live: &[u8],
     log: &mut EventLog,
-    soc: &Society,
-    exp: &Exploration,
+    tun: &Tuning,
 ) {
+    let soc = &tun.society;
     let tick = Tick(entry.tick);
     let nation_id = NationId(entry.nation);
     let reject = |log: &mut EventLog, reason: String| {
@@ -46,7 +52,15 @@ pub fn apply(
 
     // Validate against the registry and the world before charging — a
     // rejected order costs nothing.
-    let base = match validate(&entry.directive, ni, world, fields, reg, known, exp) {
+    let base = match validate(
+        &entry.directive,
+        ni,
+        world,
+        fields,
+        reg,
+        known,
+        &tun.exploration,
+    ) {
         Ok(base) => base,
         Err(reason) => {
             reject(log, reason);
@@ -86,7 +100,10 @@ pub fn apply(
             action,
             target,
             params,
-        } => enact(action, *target, params, ni, world, known, tick, log, soc),
+        } => enact(
+            action, *target, params, ni, world, known, ground, rocks, flora_live, fields, tick,
+            log, tun,
+        ),
     }
 }
 
@@ -98,7 +115,7 @@ fn validate(
     fields: &WorldFields,
     reg: &Registry,
     known: &WorldKnowledge,
-    exp: &Exploration,
+    exp: &tuning::Exploration,
 ) -> Result<f64, String> {
     match directive {
         Directive::Set { key, value } => {
@@ -120,8 +137,12 @@ fn validate(
             let tile = check_target(def.target, *target, ni, world, fields)?;
             if action == registry::COMMISSION {
                 let work = params["work"].as_text().expect("checked as choice");
+                let function = structures::FUNCTIONS
+                    .iter()
+                    .position(|f| *f == work)
+                    .expect("checked against options");
                 let t = tile.expect("owned-tile target checked");
-                if world.works.has_or_building(t, work) {
+                if world.works.has_or_building(t, function) {
                     return Err(format!("a {work} already stands or is being built there"));
                 }
             }
@@ -141,67 +162,6 @@ fn validate(
     }
 }
 
-/// Every declared param present and in bounds; nothing undeclared.
-fn check_params(def: &ActionDef, params: &BTreeMap<String, PolicyValue>) -> Result<(), String> {
-    for p in &def.params {
-        let value = params
-            .get(&p.name)
-            .ok_or(format!("missing param \"{}\"", p.name))?;
-        p.kind
-            .check(value)
-            .map_err(|e| format!("param \"{}\": {e}", p.name))?;
-    }
-    if let Some(unknown) = params
-        .keys()
-        .find(|k| !def.params.iter().any(|p| &p.name == *k))
-    {
-        return Err(format!("unknown param \"{unknown}\""));
-    }
-    Ok(())
-}
-
-/// The action's declared target kind, checked against the world.
-fn check_target(
-    kind: TargetKind,
-    target: Option<u32>,
-    ni: usize,
-    world: &WorldNations,
-    fields: &WorldFields,
-) -> Result<Option<u32>, String> {
-    let nation_id = world.nations[ni].id;
-    match kind {
-        TargetKind::Nation => {
-            if target.is_some() {
-                return Err("this action takes no target tile".into());
-            }
-            Ok(None)
-        }
-        TargetKind::OwnedTile => {
-            let t = target.ok_or("this action needs a target tile")?;
-            if (t as usize) >= fields.grid().cells() {
-                return Err("no such tile".into());
-            }
-            if world.owner[t as usize] != Some(nation_id) {
-                return Err("the target must be one of your own tiles".into());
-            }
-            Ok(Some(t))
-        }
-        TargetKind::FrontierTile => {
-            let t = target.ok_or("this action needs a target tile")?;
-            if (t as usize) >= fields.grid().cells() || !tiles::is_land(fields, t as usize) {
-                return Err("no such land tile".into());
-            }
-            if world.owner[t as usize].is_some() {
-                return Err("tile is already claimed".into());
-            }
-            if !world.borders_territory(nation_id, fields, t as usize) {
-                return Err("tile does not border your territory".into());
-            }
-            Ok(Some(t))
-        }
-    }
-}
-
 /// Dispatch a validated, paid action to its owning system.
 #[allow(clippy::too_many_arguments)]
 fn enact(
@@ -211,9 +171,13 @@ fn enact(
     ni: usize,
     world: &mut WorldNations,
     known: &mut WorldKnowledge,
+    ground: &Regolith,
+    rocks: &Geology,
+    flora_live: &[u8],
+    fields: &WorldFields,
     tick: Tick,
     log: &mut EventLog,
-    soc: &Society,
+    tun: &Tuning,
 ) {
     let nation_id = world.nations[ni].id;
     match action {
@@ -242,12 +206,27 @@ fn enact(
         registry::COMMISSION => {
             let tile = target.expect("owned-tile target checked");
             let work = params["work"].as_text().expect("checked as choice");
-            world.works.commission(tile, work, soc);
+            let function = structures::FUNCTIONS
+                .iter()
+                .position(|f| *f == work)
+                .expect("checked against options");
+            // The building derives from the ground it will stand on.
+            let design = structures::design(
+                function,
+                ground,
+                rocks,
+                flora_live,
+                fields,
+                tile as usize,
+                &tun.structures,
+            );
+            let name = design.name.clone();
+            world.works.commission(tile, design);
             log.push(Event::WorkCommissioned {
                 tick,
                 nation: nation_id,
                 tile: TileId(tile),
-                work: work.to_string(),
+                work: name,
             });
         }
         registry::SCOUT => {

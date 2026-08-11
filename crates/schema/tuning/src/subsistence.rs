@@ -26,7 +26,6 @@ pub struct Subsistence {
     pub herd_wear_divisor: f64,
     /// Storage caps and monthly keep-fraction (spoilage takes the rest).
     pub store_base: f64,
-    pub store_granary: f64,
     pub store_keep: f64,
     /// Food needed per person per month.
     pub food_per_head: f64,
@@ -62,7 +61,6 @@ impl Default for Subsistence {
             gather_wear_divisor: 40.0,
             herd_wear_divisor: 60.0,
             store_base: 500.0,
-            store_granary: 1500.0,
             store_keep: 0.94,
             food_per_head: 1.0,
             famine_nutrition: 0.75,

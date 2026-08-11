@@ -96,7 +96,7 @@ pub fn generate(
     let camp = populated.then(|| place_camp(&water, &mut tree));
     // Presentation matches works by their registry key (docs/20).
     if let Some((cx, cy)) = camp
-        && works.iter().any(|w| w == "farmstead")
+        && works.iter().any(|w| w.contains("field-works"))
     {
         clear_farm_plot(&mut tree, cx, cy);
     }

@@ -36,6 +36,7 @@ pub struct App {
     /// 2 = the deep. Textures cut lazily; geology never changes.
     pub(crate) depth_view: u8,
     pub(crate) underground: [Option<TextureHandle>; 2],
+    pub(crate) calamities: crate::calamity::Calamities,
     pub(crate) seen_events: usize,
     pub(crate) feed: Vec<Line>,
     pub(crate) folk: Folk,
@@ -78,6 +79,7 @@ impl App {
             waters,
             depth_view: 0,
             underground: [None, None],
+            calamities: crate::calamity::Calamities::default(),
             seen_events: 0,
             feed: Vec::new(),
             folk: Folk::default(),
@@ -154,6 +156,9 @@ impl App {
             painter.image(self.shade.id(), map_rect, uv, egui::Color32::WHITE);
             painter.image(self.territory.id(), map_rect, uv, egui::Color32::WHITE);
             self.waters.draw(&self.world, &self.cam, painter, rect);
+            self.calamities.draw(&self.world, &self.cam, painter, rect);
+            crate::calamity::draw_fires(&self.world, &self.cam, painter, rect);
+            crate::calamity::draw_vents(&self.world, &self.cam, painter, rect);
             self.fog.draw(painter, map_rect, uv);
             self.folk.draw(painter, &self.cam, rect);
             crate::fogview::draw_scouts(&self.world, &self.cam, painter, rect);

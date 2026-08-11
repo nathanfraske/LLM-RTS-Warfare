@@ -5,8 +5,6 @@
 use policy::{ActionDef, ParamDef, PolicyDef, PolicyType, PolicyValue, TargetKind};
 use tuning::Society;
 
-use crate::works;
-
 /// Expansion posture leaf: read by the band autopilot's split logic.
 pub const POSTURE: &str = "expansion.posture";
 pub const POSTURE_CONSOLIDATE: &str = "consolidate";
@@ -37,9 +35,9 @@ pub fn policy_defs(soc: &Society) -> Vec<PolicyDef> {
 
 #[must_use]
 pub fn action_defs(soc: &Society) -> Vec<ActionDef> {
-    let work_options = works::catalog(soc)
+    let work_options = structures::FUNCTIONS
         .iter()
-        .map(|(key, _)| (*key).to_string())
+        .map(|f| (*f).to_string())
         .collect();
     vec![
         ActionDef {
@@ -88,8 +86,9 @@ pub fn action_defs(soc: &Society) -> Vec<ActionDef> {
                 },
             }],
             cost: soc.cost_commission,
-            summary: "Raise a work over months — farmstead: richer fields; granary: deeper \
-                      stores; dwellings: more births."
+            summary: "Raise a structure for a function — the building itself derives from \
+                      the tile's own ground: field-works richen cultivation, store-houses \
+                      deepen stores, hearth-halls shelter births."
                 .into(),
         },
     ]

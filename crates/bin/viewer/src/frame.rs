@@ -48,6 +48,10 @@ impl App {
                     self.territory_dirty = true;
                 }
                 Event::NationSpawned { .. } => self.territory_dirty = true,
+                Event::VolcanoErupted { tick, tile, .. } => {
+                    let (vent, at) = (tile.0, tick.0);
+                    self.calamities.record(&self.world, vent, at);
+                }
                 _ => {}
             }
             if let Some(line) = feed::describe(&event, &self.world) {

@@ -100,6 +100,8 @@ pub enum Event {
         reach: u32,
         ash_tiles: u32,
     },
+    /// Wildfire reached a settled tile (docs/26).
+    Wildfire { tick: Tick, tile: TileId },
     /// The fault slipped (docs/29): the ground shook `reach` tiles around.
     Earthquake {
         tick: Tick,

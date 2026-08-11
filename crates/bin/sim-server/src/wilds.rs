@@ -16,6 +16,30 @@ impl World {
             &self.tuning.weather,
             &self.tuning.seasons,
         );
+        // The burning season: fire eats fuel before the regrowth answers.
+        let burn = self.blaze.tick_month(
+            self.seed,
+            tick,
+            &self.genesis.fields,
+            &self.climate,
+            &mut self.flora_live,
+            &self.tuning.seasons,
+            &self.tuning.wildfire,
+        );
+        for &tile in &burn.burning {
+            if let Some(owner) = self.nations.owner[tile.0 as usize] {
+                self.cull_settled(tile.0, self.tuning.wildfire.fire_cull_permille);
+                self.log.push(Event::Wildfire { tick, tile });
+                for work in self.nations.works.scorch(tile.0, &self.tuning.structures) {
+                    self.log.push(Event::WorkToppled {
+                        tick,
+                        nation: owner,
+                        tile,
+                        work,
+                    });
+                }
+            }
+        }
         self.regolith.tick_month(
             &self.genesis.fields,
             &self.climate,
@@ -61,6 +85,12 @@ impl World {
                     self.fauna.set(si, tile, Quantity::ZERO);
                 }
                 self.cull_settled(t, self.tuning.deep.lava_cull_permille);
+                // Molten rock lights whatever green borders the run.
+                let (neighbors, n) = self.genesis.fields.grid().neighbors8(tile);
+                for &nb in &neighbors[..n] {
+                    self.blaze
+                        .ignite(nb, &self.flora_live, &self.tuning.wildfire);
+                }
             }
             // The ejecta: ash rides the wind far past the lava, smothering
             // the green by heaviness and laying fines the weathering will
@@ -80,6 +110,18 @@ impl World {
                 self.flora_live[tile] = self.flora_live[tile].saturating_sub(smother);
                 self.regolith
                     .ash_fall(tile, heaviness, self.tuning.deep.ash_fines);
+                if heaviness > 170
+                    && let Some(owner) = self.nations.owner[tile]
+                {
+                    for work in self.nations.works.ash_load(t, &self.tuning.structures) {
+                        self.log.push(Event::WorkToppled {
+                            tick,
+                            nation: owner,
+                            tile: TileId(t),
+                            work,
+                        });
+                    }
+                }
             }
             self.log.push(Event::VolcanoErupted {
                 tick,
@@ -117,15 +159,15 @@ impl World {
                         .shake(&self.genesis.fields, tile, self.tuning.deep.quake_slide);
                     let t32 = u32::try_from(tile).expect("tile fits");
                     self.cull_settled(t32, self.tuning.deep.quake_cull_permille);
-                    if let Some(owner) = self.nations.owner[tile]
-                        && let Some(work) = self.nations.works.topple(t32)
-                    {
-                        self.log.push(Event::WorkToppled {
-                            tick,
-                            nation: owner,
-                            tile: TileId(t32),
-                            work,
-                        });
+                    if let Some(owner) = self.nations.owner[tile] {
+                        for work in self.nations.works.shake(t32, &self.tuning.structures) {
+                            self.log.push(Event::WorkToppled {
+                                tick,
+                                nation: owner,
+                                tile: TileId(t32),
+                                work,
+                            });
+                        }
                     }
                 }
             }

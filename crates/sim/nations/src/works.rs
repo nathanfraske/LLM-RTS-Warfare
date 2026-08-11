@@ -1,68 +1,56 @@
-//! Commissioned works: direct projects that institutions build over months,
-//! with effects on the tile that hosts them (docs/16-mandate-and-works.md).
-//! The catalog is registry data — what `works.commission` offers is exactly
-//! what `catalog` returns; effects key off the work's name here, its owner.
+//! Raised structures (docs/30-structures.md): what a nation has built and
+//! is building, tile by tile. Every building is a derived `Design` — no
+//! catalog exists — and carries live **integrity** that quakes, fire, and
+//! ash spend. Effects flow from composition: the walls set the numbers.
 
 use std::collections::BTreeMap;
 
 use sim_events::{Event, EventLog};
-use tuning::Society;
+use structures::{Design, FIELD_WORKS, HEARTH_HALL, STORE_HOUSE};
 use world_schema::{NationId, Quantity, Tick, TileId};
 
-pub const FARMSTEAD: &str = "farmstead";
-pub const GRANARY: &str = "granary";
-pub const DWELLINGS: &str = "dwellings";
-
-/// Every commissionable work and its build time. Adding a work here (plus
-/// its effect below) is the whole job — the registry and reports follow.
-#[must_use]
-pub fn catalog(soc: &Society) -> Vec<(&'static str, u8)> {
-    vec![
-        (FARMSTEAD, soc.farmstead_months),
-        (GRANARY, soc.granary_months),
-        (DWELLINGS, soc.dwellings_months),
-    ]
+/// A standing building: its design and what it has left to withstand.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Building {
+    pub design: Design,
+    pub integrity: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkState {
-    pub work: String,
+    pub design: Design,
     pub months_left: u8,
 }
 
-/// All works in the world, keyed by tile.
+/// All structures in the world, keyed by tile.
 #[derive(Debug, Default)]
 pub struct Works {
     building: BTreeMap<u32, Vec<WorkState>>,
-    done: BTreeMap<u32, Vec<String>>,
+    done: BTreeMap<u32, Vec<Building>>,
 }
 
 impl Works {
     #[must_use]
-    pub fn has_or_building(&self, tile: u32, work: &str) -> bool {
+    pub fn has_or_building(&self, tile: u32, function: usize) -> bool {
         self.done
             .get(&tile)
-            .is_some_and(|v| v.iter().any(|w| w == work))
+            .is_some_and(|v| v.iter().any(|b| b.design.function == function))
             || self
                 .building
                 .get(&tile)
-                .is_some_and(|v| v.iter().any(|w| w.work == work))
+                .is_some_and(|v| v.iter().any(|w| w.design.function == function))
     }
 
-    pub fn commission(&mut self, tile: u32, work: &str, soc: &Society) {
-        let months = catalog(soc)
-            .iter()
-            .find(|(key, _)| *key == work)
-            .map(|(_, months)| *months)
-            .expect("commission is validated against the catalog");
+    pub fn commission(&mut self, tile: u32, design: Design) {
+        let months_left = design.months;
         self.building.entry(tile).or_default().push(WorkState {
-            work: work.to_string(),
-            months_left: months,
+            design,
+            months_left,
         });
     }
 
     #[must_use]
-    pub fn completed(&self, tile: u32) -> &[String] {
+    pub fn completed(&self, tile: u32) -> &[Building] {
         self.done.get(&tile).map_or(&[], Vec::as_slice)
     }
 
@@ -71,100 +59,127 @@ impl Works {
         self.building.get(&tile).map_or(&[], Vec::as_slice)
     }
 
-    /// A farmstead multiplies cultivation yield (docs/19).
+    /// Names of everything standing here, for maps and reports.
     #[must_use]
-    pub fn cultivation_mult(&self, tile: u32, soc: &Society) -> Quantity {
-        if self.completed(tile).iter().any(|w| w == FARMSTEAD) {
-            Quantity::from_num(soc.farmstead_cultivation_mult)
-        } else {
-            Quantity::ONE
+    pub fn names(&self, tile: u32) -> Vec<String> {
+        self.completed(tile)
+            .iter()
+            .map(|b| b.design.name.clone())
+            .collect()
+    }
+
+    fn best_effect(&self, tile: u32, function: usize) -> u16 {
+        self.completed(tile)
+            .iter()
+            .filter(|b| b.design.function == function)
+            .map(|b| b.design.effect_milli)
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// Field-works multiply cultivation by what their ground and walls earn.
+    #[must_use]
+    pub fn cultivation_mult(&self, tile: u32, st: &tuning::Structures) -> Quantity {
+        Quantity::ONE
+            + Quantity::from_num(self.best_effect(tile, FIELD_WORKS))
+                * Quantity::from_num(st.field_mult_permille)
+                / Quantity::from_num(1_000_000)
+    }
+
+    /// Store capacity the standing store-houses add over the base.
+    #[must_use]
+    pub fn store_bonus(&self, tile: u32, st: &tuning::Structures) -> Quantity {
+        Quantity::from_num(self.best_effect(tile, STORE_HOUSE))
+            * Quantity::from_num(st.store_capacity)
+            / Quantity::from_num(1000)
+    }
+
+    /// Hearth-halls shelter families.
+    #[must_use]
+    pub fn birth_mult(&self, tile: u32, st: &tuning::Structures) -> Quantity {
+        Quantity::ONE
+            + Quantity::from_num(self.best_effect(tile, HEARTH_HALL))
+                * Quantity::from_num(st.shelter_permille)
+                / Quantity::from_num(1_000_000)
+    }
+
+    /// Spend integrity on everything here that the filter admits; what
+    /// runs out falls, and the fallen names are returned for the record.
+    pub fn damage(
+        &mut self,
+        tile: u32,
+        amount: u16,
+        hits: impl Fn(&Building) -> bool,
+    ) -> Vec<String> {
+        let Some(list) = self.done.get_mut(&tile) else {
+            return Vec::new();
+        };
+        let mut fallen = Vec::new();
+        for b in list.iter_mut() {
+            if !hits(b) {
+                continue;
+            }
+            b.integrity = b.integrity.saturating_sub(amount);
+            if b.integrity == 0 {
+                fallen.push(b.design.name.clone());
+            }
         }
-    }
-
-    /// Dwellings shelter families.
-    #[must_use]
-    pub fn birth_mult(&self, tile: u32, soc: &Society) -> Quantity {
-        if self.completed(tile).iter().any(|w| w == DWELLINGS) {
-            Quantity::from_num(soc.dwellings_birth_mult)
-        } else {
-            Quantity::ONE
-        }
-    }
-
-    /// A granary is a real container: it raises the food storage cap.
-    #[must_use]
-    pub fn has_granary(&self, tile: u32) -> bool {
-        self.completed(tile).iter().any(|w| w == GRANARY)
-    }
-
-    /// A shake brings the newest finished work down; returns what fell.
-    pub fn topple(&mut self, tile: u32) -> Option<String> {
-        let list = self.done.get_mut(&tile)?;
-        let fallen = list.pop();
+        list.retain(|b| b.integrity > 0);
         if list.is_empty() {
             self.done.remove(&tile);
         }
         fallen
     }
 
+    /// A quake shakes everything standing; poor footings feel it double.
+    pub fn shake(&mut self, tile: u32, st: &tuning::Structures) -> Vec<String> {
+        let mut fallen = self.damage(tile, st.quake_damage, |b| b.design.footing_milli < 400);
+        fallen.extend(self.damage(tile, st.quake_damage / 2, |b| b.design.footing_milli >= 400));
+        fallen
+    }
+
+    /// Fire finds what can burn: light roofs and soft walls.
+    pub fn scorch(&mut self, tile: u32, st: &tuning::Structures) -> Vec<String> {
+        self.damage(tile, st.fire_scorch, |b| {
+            b.design.roof.mass < st.light_roof_mass || b.design.wall.mass < 500
+        })
+    }
+
+    /// Heavy ash loads crush light roofs.
+    pub fn ash_load(&mut self, tile: u32, st: &tuning::Structures) -> Vec<String> {
+        self.damage(tile, st.ash_load, |b| {
+            b.design.roof.mass < st.light_roof_mass
+        })
+    }
+
     /// Advance construction one month; completions become world events.
     pub fn tick_month(&mut self, owner: &[Option<NationId>], tick: Tick, log: &mut EventLog) {
-        let mut finished: Vec<(u32, String)> = Vec::new();
+        let mut finished: Vec<(u32, Design)> = Vec::new();
         for (&tile, states) in &mut self.building {
             for state in states.iter_mut() {
                 state.months_left -= 1;
                 if state.months_left == 0 {
-                    finished.push((tile, state.work.clone()));
+                    finished.push((tile, state.design.clone()));
                 }
             }
             states.retain(|w| w.months_left > 0);
         }
         self.building.retain(|_, v| !v.is_empty());
-        for (tile, work) in finished {
-            self.done.entry(tile).or_default().push(work.clone());
+        for (tile, design) in finished {
+            let name = design.name.clone();
+            let integrity = design.integrity_milli;
+            self.done
+                .entry(tile)
+                .or_default()
+                .push(Building { design, integrity });
             if let Some(nation) = owner[tile as usize] {
                 log.push(Event::WorkCompleted {
                     tick,
                     nation,
                     tile: TileId(tile),
-                    work,
+                    work: name,
                 });
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn works_build_over_months_and_apply_their_effects() {
-        let soc = Society::default();
-        let mut works = Works::default();
-        let owner = vec![Some(NationId(0)); 4];
-        let mut log = EventLog::new();
-        works.commission(2, FARMSTEAD, &soc);
-        assert!(works.has_or_building(2, FARMSTEAD));
-        assert_eq!(
-            works.cultivation_mult(2, &soc),
-            Quantity::ONE,
-            "not built yet"
-        );
-        for month in 1..=6u64 {
-            works.tick_month(&owner, Tick(month * 720), &mut log);
-        }
-        assert_eq!(
-            works.cultivation_mult(2, &soc),
-            Quantity::from_num(soc.farmstead_cultivation_mult)
-        );
-        assert_eq!(works.in_progress(2).len(), 0);
-        assert_eq!(log.len(), 1, "completion is a world event");
-        assert!(!works.has_granary(2));
-        works.commission(2, GRANARY, &soc);
-        for month in 7..=14u64 {
-            works.tick_month(&owner, Tick(month * 720), &mut log);
-        }
-        assert!(works.has_granary(2));
     }
 }

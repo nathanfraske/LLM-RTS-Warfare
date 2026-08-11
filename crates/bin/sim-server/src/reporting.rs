@@ -1,7 +1,34 @@
 //! Council report IO: rendering every nation's fogged report and the
 //! omniscient world summary to disk at the end of a run.
 
-use crate::World;
+use fauna::Fauna;
+use sim_events::{Event, EventLog};
+use world_map::tiles;
+
+use crate::{Genesis, World};
+
+/// The genesis ledger line: what the world was born holding.
+pub(crate) fn log_genesis(
+    genesis: &Genesis,
+    wild: &Fauna,
+    all_cohorts: &cohorts::Cohorts,
+    log: &mut EventLog,
+) {
+    let cells = genesis.fields.grid().cells();
+    log.push(Event::WorldGenerated {
+        land_tiles: genesis.fields.land_cells(),
+        habitable_tiles: u32::try_from(
+            (0..cells)
+                .filter(|&t| tiles::habitable(&genesis.fields, t))
+                .count(),
+        )
+        .expect("count fits u32"),
+        flora_species: u16::try_from(genesis.flora.species.len()).expect("species count fits u16"),
+        fauna_species: u16::try_from(wild.species.len()).expect("species count fits u16"),
+        cohorts: u32::try_from(all_cohorts.len()).expect("cohort count fits u32"),
+        population: all_cohorts.total_population(),
+    });
+}
 
 impl World {
     /// Write the council + world reports for the current tick. The

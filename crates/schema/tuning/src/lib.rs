@@ -14,6 +14,7 @@ mod ecology;
 mod exploration;
 mod ground;
 mod society;
+mod structure;
 mod subsistence;
 mod weather;
 
@@ -23,8 +24,9 @@ pub use ecology::Ecology;
 pub use exploration::Exploration;
 pub use ground::Ground;
 pub use society::Society;
+pub use structure::Structures;
 pub use subsistence::Subsistence;
-pub use weather::{Seasons, Sky, Weather};
+pub use weather::{Seasons, Sky, Weather, Wildfire};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -39,4 +41,6 @@ pub struct Tuning {
     pub sky: Sky,
     pub ground: Ground,
     pub deep: Deep,
+    pub wildfire: Wildfire,
+    pub structures: Structures,
 }

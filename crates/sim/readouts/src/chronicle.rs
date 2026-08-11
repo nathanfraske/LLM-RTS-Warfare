@@ -163,6 +163,9 @@ fn calamity_line(e: &Event, id: NationId, world: &WorldNations) -> Option<String
                 tile.0
             ))
         }
+        Event::Wildfire { tick, tile } if world.owner[tile.0 as usize] == Some(id) => {
+            Some(format!("{} — fire swept our tile {}", stamp(*tick), tile.0))
+        }
         Event::Earthquake { tick, tile, .. }
             if world.owner[tile.0 as usize] == Some(id)
                 || world.owned_tiles(id).any(|t| t.0.abs_diff(tile.0) < 600) =>

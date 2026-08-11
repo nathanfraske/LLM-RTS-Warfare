@@ -260,6 +260,10 @@ fn calamity_line(event: &Event, world: &World) -> Option<Line> {
             ),
             Kind::Alarm,
         ),
+        Event::Wildfire { tick, tile } => (
+            format!("{} · fire sweeps tile {}", stamp(*tick), tile.0),
+            Kind::Alarm,
+        ),
         Event::Earthquake { tick, tile, reach } => (
             format!(
                 "{} · the earth shakes at tile {} — {} tiles rattled",

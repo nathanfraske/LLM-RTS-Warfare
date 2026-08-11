@@ -121,7 +121,7 @@ fn the_charter_renders_the_live_registry() {
         "nation.name",
         "band.settle",
         "works.commission",
-        "farmstead / granary / dwellings",
+        "field-works / store-house / hearth-hall",
     ] {
         assert!(report.contains(key), "charter must list {key}");
     }

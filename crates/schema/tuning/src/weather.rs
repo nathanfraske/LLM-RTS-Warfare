@@ -81,6 +81,47 @@ impl Default for Weather {
     }
 }
 
+/// Fire in the world (docs/26): what catches, how it runs, what stops it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Wildfire {
+    /// Vegetation density below which nothing burns.
+    pub fuel_min: u8,
+    /// Density above which dry lightning finds tinder.
+    pub tinder_fuel: u8,
+    /// Delivered water below which the land counts as parched.
+    pub dry_delivered: u16,
+    /// Delivered water that puts a fire out.
+    pub quench_delivered: u16,
+    /// Fresh-catch intensity.
+    pub ignite_intensity: u8,
+    /// Fuel burned per burning month, density points.
+    pub burn_rate: u8,
+    /// Base monthly spread chance to a burnable neighbor, per mille
+    /// (doubled by drought, doubled again downwind).
+    pub spread_permille: u16,
+    /// Dry-lightning strikes per parched tinder tile, per ten thousand.
+    pub lightning_permyriad: u16,
+    /// Share of a settled tile's people a fire month takes, per mille.
+    pub fire_cull_permille: u16,
+}
+
+impl Default for Wildfire {
+    fn default() -> Self {
+        Self {
+            fuel_min: 45,
+            tinder_fuel: 120,
+            dry_delivered: 8,
+            quench_delivered: 30,
+            ignite_intensity: 180,
+            burn_rate: 90,
+            spread_permille: 210,
+            lightning_permyriad: 4,
+            fire_cull_permille: 45,
+        }
+    }
+}
+
 /// The sky's presentation clock (docs/26 §4): the moon and the night.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]

@@ -35,7 +35,7 @@ impl LocalView {
             &world.genesis.flora,
             tile,
             populated,
-            world.nations.works.completed(tile.0),
+            &world.nations.works.names(tile.0),
             &world.flora_live,
         );
         let texture = ctx.load_texture("local", layers::local_image(&map), TextureOptions::NEAREST);

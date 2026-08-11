@@ -31,6 +31,8 @@ anatomy = { path = "crates/sim/anatomy" }
 climate = { path = "crates/sim/climate" }
 regolith = { path = "crates/sim/regolith" }
 geology = { path = "crates/sim/geology" }
+wildfire = { path = "crates/sim/wildfire" }
+structures = { path = "crates/sim/structures" }
 sim-clock = { path = "crates/sim/sim-clock" }
 sim-events = { path = "crates/sim/sim-events" }
 world-map = { path = "crates/sim/world-map" }

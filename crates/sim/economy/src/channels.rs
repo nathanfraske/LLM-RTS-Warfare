@@ -7,7 +7,7 @@ use climate::Climate;
 use fauna::Fauna;
 use nations::works::Works;
 use regolith::Regolith;
-use tuning::{Ecology, Society, Subsistence, Weather};
+use tuning::{Ecology, Structures, Subsistence, Weather};
 use world_map::WorldFields;
 use world_schema::Quantity;
 
@@ -64,7 +64,7 @@ pub fn extract(
     tile: usize,
     sub: &Subsistence,
     eco: &Ecology,
-    society: &Society,
+    st: &Structures,
     wx: &Weather,
     grd: &tuning::Ground,
 ) -> ChannelYields {
@@ -110,7 +110,7 @@ pub fn extract(
         * fert
         * econ.establishment
         * growth
-        * works.cultivation_mult(tile as u32, society);
+        * works.cultivation_mult(tile as u32, st);
     econ.establishment = (econ.establishment
         + share[3] * Quantity::from_num(sub.establish_rate) * growth
         - Quantity::from_num(sub.establish_decay))

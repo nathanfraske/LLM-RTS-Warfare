@@ -2031,10 +2031,13 @@ version = "0.0.1"
 dependencies = [
  "cohorts",
  "directive-schema",
+ "geology",
  "knowledge",
  "policy",
+ "regolith",
  "sim-events",
  "species",
+ "structures",
  "tuning",
  "world-map",
  "world-schema",
@@ -3074,6 +3077,7 @@ dependencies = [
  "sim-events",
  "species",
  "tuning",
+ "wildfire",
  "world-map",
  "world-schema",
 ]
@@ -3253,6 +3257,18 @@ name = "strict-num"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
+
+[[package]]
+name = "structures"
+version = "0.0.1"
+dependencies = [
+ "geology",
+ "regolith",
+ "sim-events",
+ "tuning",
+ "world-map",
+ "world-schema",
+]
 
 [[package]]
 name = "syn"
@@ -4082,6 +4098,17 @@ dependencies = [
  "raw-window-handle",
  "static_assertions",
  "web-sys",
+]
+
+[[package]]
+name = "wildfire"
+version = "0.0.1"
+dependencies = [
+ "climate",
+ "sim-events",
+ "tuning",
+ "world-map",
+ "world-schema",
 ]
 
 [[package]]
