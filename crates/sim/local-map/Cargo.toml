@@ -10,6 +10,7 @@ world-schema = { workspace = true }
 sim-events = { workspace = true }
 world-map = { workspace = true }
 flora = { workspace = true }
+structures = { workspace = true }
 
 [lints]
 workspace = true

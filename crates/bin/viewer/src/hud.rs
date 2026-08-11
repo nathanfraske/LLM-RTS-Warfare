@@ -117,6 +117,14 @@ pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<TileId>) {
             species: nation.species,
         });
         ui.label(format!("Held by {} ({})", nation.name, s.name));
+        for b in world.nations.works.completed(t.0) {
+            let (w, d) = b.design.footprint();
+            ui.label(format!(
+                "· {} — {w}x{d}, integrity {}%",
+                b.design.name,
+                u32::from(b.integrity) * 100 / 1000
+            ));
+        }
         if let Some(te) = world.economy.tile(t.0) {
             ui.label(format!(
                 "Population {pop:.0} · fed {:.0}% · stores {:.0}",

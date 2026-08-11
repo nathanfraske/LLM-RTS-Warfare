@@ -1913,6 +1913,7 @@ version = "0.0.1"
 dependencies = [
  "flora",
  "sim-events",
+ "structures",
  "world-map",
  "world-schema",
 ]

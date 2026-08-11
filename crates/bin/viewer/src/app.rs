@@ -160,6 +160,7 @@ impl App {
             crate::calamity::draw_fires(&self.world, &self.cam, painter, rect);
             crate::calamity::draw_vents(&self.world, &self.cam, painter, rect);
             self.fog.draw(painter, map_rect, uv);
+            crate::built::draw_world(&self.world, &self.cam, painter, rect);
             self.folk.draw(painter, &self.cam, rect);
             crate::fogview::draw_scouts(&self.world, &self.cam, painter, rect);
             crate::sky::draw_night(&self.world, painter, rect, map_rect);

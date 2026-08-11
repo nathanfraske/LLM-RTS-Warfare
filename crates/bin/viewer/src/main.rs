@@ -3,6 +3,7 @@
 //! (docs/10-visualization.md — viewer v0 on the egui shell).
 
 mod app;
+mod built;
 mod calamity;
 mod camera;
 mod critters;

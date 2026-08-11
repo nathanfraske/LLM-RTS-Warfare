@@ -257,22 +257,25 @@ fn draw_camp(rgb: &mut [u8], map: &LocalMap, cx: u32, cy: u32) {
             }
         }
     }
-    if map.works.iter().any(|w| w.contains("store-house")) {
-        for dy in -12i64..=-8 {
-            for dx in -12i64..=-8 {
-                paint(cx + dx, cy + dy, (96, 70, 44));
-            }
+    // Raised buildings paint themselves from the built layer: walls in
+    // their material, roofs lighter within (docs/30 — size is real).
+    for (at, &b) in map.built.iter().enumerate() {
+        if b == 0 {
+            continue;
         }
+        let x = i64::try_from(at % map.size as usize).expect("bounded");
+        let y = i64::try_from(at / map.size as usize).expect("bounded");
+        let color = match b {
+            1 => (139, 102, 60),   // earthen wall
+            2 => (126, 124, 130),  // stone wall
+            3 => (104, 74, 42),    // timber wall
+            11 => (176, 150, 100), // earthen roofline
+            12 => (168, 168, 174), // stone roofline
+            _ => (150, 116, 74),   // timber roofline
+        };
+        paint(x, y, color);
     }
-    if map.works.iter().any(|w| w.contains("hearth-hall")) {
-        for (hx, hy) in EXTRA {
-            for dy in 0..2i64 {
-                for dx in 0..2i64 {
-                    paint(cx + hx + dx, cy + hy + dy, (122, 86, 54));
-                }
-            }
-        }
-    }
+    let _ = EXTRA;
 }
 
 fn lerp(a: (u8, u8, u8), b: (u8, u8, u8), t: f32) -> (u8, u8, u8) {

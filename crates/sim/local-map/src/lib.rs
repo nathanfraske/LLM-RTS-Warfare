@@ -4,9 +4,14 @@
 //! discarded freely, identical every visit. Adjacent tiles agree at their
 //! edges because detail noise is keyed by global cell coordinates.
 
+mod camp;
+
 use flora::{FloraMap, NO_FLORA};
 use sim_events::rng;
 use sim_events::{SystemId, WorldSeed};
+use structures::Design;
+
+use crate::camp::{clear_farm_plot, place_camp, raise_buildings};
 use world_map::noise::{self, Channel};
 use world_map::{Water, WorldFields};
 use world_schema::{Tick, TileId};
@@ -29,8 +34,11 @@ pub struct LocalMap {
     pub tree: Vec<bool>,
     /// Camp center when the tile is settled.
     pub camp: Option<(u32, u32)>,
-    /// Completed works on this tile, by registry key, for rendering.
+    /// Completed works on this tile, by name, for the folk's job checks.
     pub works: Vec<String>,
+    /// Built ground per cell: 0 open; 1-3 walls (earth/stone/timber);
+    /// 11-13 the roofed interior of the same classes.
+    pub built: Vec<u8>,
 }
 
 /// Generate the local map for `tile`. `populated` places the camp.
@@ -41,7 +49,7 @@ pub fn generate(
     flora: &FloraMap,
     tile: TileId,
     populated: bool,
-    works: &[String],
+    buildings: &[Design],
     density_live: &[u8],
 ) -> LocalMap {
     let world = fields.grid();
@@ -94,11 +102,12 @@ pub fn generate(
     }
 
     let camp = populated.then(|| place_camp(&water, &mut tree));
-    // Presentation matches works by their registry key (docs/20).
-    if let Some((cx, cy)) = camp
-        && works.iter().any(|w| w.contains("field-works"))
-    {
-        clear_farm_plot(&mut tree, cx, cy);
+    let mut built = vec![0u8; (LOCAL_SIZE * LOCAL_SIZE) as usize];
+    if let Some((cx, cy)) = camp {
+        if buildings.iter().any(Design::is_groundwork) {
+            clear_farm_plot(&mut tree, cx, cy);
+        }
+        raise_buildings(&mut built, &mut tree, &water, buildings, cx, cy);
     }
 
     LocalMap {
@@ -108,20 +117,8 @@ pub fn generate(
         veg,
         tree,
         camp,
-        works: works.to_vec(),
-    }
-}
-
-/// Tilled fields need open ground east of the camp.
-fn clear_farm_plot(tree: &mut [bool], cx: u32, cy: u32) {
-    let size = i64::from(LOCAL_SIZE);
-    for dy in -10i64..=10 {
-        for dx in 9i64..=30 {
-            let (x, y) = (i64::from(cx) + dx, i64::from(cy) + dy);
-            if x >= 0 && y >= 0 && x < size && y < size {
-                tree[(y as usize) * LOCAL_SIZE as usize + x as usize] = false;
-            }
-        }
+        works: buildings.iter().map(|d| d.name.clone()).collect(),
+        built,
     }
 }
 
@@ -192,41 +189,6 @@ fn flood_basin(water: &mut [Water], elevation: &[i32]) {
             *w = Water::Lake;
         }
     }
-}
-
-/// First dry cell spiralling out from the center; clears trees around it.
-fn place_camp(water: &[Water], tree: &mut [bool]) -> (u32, u32) {
-    let size = i64::from(LOCAL_SIZE);
-    let center = size / 2;
-    let mut best = (LOCAL_SIZE / 2, LOCAL_SIZE / 2);
-    'search: for radius in 0..size / 2 {
-        for dy in -radius..=radius {
-            for dx in -radius..=radius {
-                if dx.abs().max(dy.abs()) != radius {
-                    continue;
-                }
-                let (x, y) = (center + dx, center + dy);
-                if x < 0 || y < 0 || x >= size || y >= size {
-                    continue;
-                }
-                let i = (y as usize) * LOCAL_SIZE as usize + x as usize;
-                if water[i] == Water::Dry {
-                    best = (x as u32, y as u32);
-                    break 'search;
-                }
-            }
-        }
-    }
-    let (cx, cy) = (i64::from(best.0), i64::from(best.1));
-    for dy in -7i64..=7 {
-        for dx in -7i64..=7 {
-            let (x, y) = (cx + dx, cy + dy);
-            if x >= 0 && y >= 0 && x < size && y < size {
-                tree[(y as usize) * LOCAL_SIZE as usize + x as usize] = false;
-            }
-        }
-    }
-    best
 }
 
 #[cfg(test)]

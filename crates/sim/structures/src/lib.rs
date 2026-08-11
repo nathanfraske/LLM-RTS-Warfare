@@ -68,10 +68,49 @@ pub struct Design {
     /// Ground quality under the footing, 0..=1000.
     pub footing_milli: u16,
     pub aspects: Aspects,
+    /// Floor-area effort, milli — the footprint follows from it.
+    pub area_milli: u16,
     pub name: String,
     /// Design integrity: what the built thing can withstand, 0..=1000.
     pub integrity_milli: u16,
     pub months: u8,
+}
+
+impl Design {
+    /// Ground the building takes at person scale, in local-map cells:
+    /// bigger effort into floor, bigger footprint.
+    #[must_use]
+    pub fn footprint(&self) -> (u8, u8) {
+        let w = 4 + self.area_milli / 80;
+        let d = 3 + self.area_milli / 130;
+        (
+            u8::try_from(w.min(16)).expect("clamped"),
+            u8::try_from(d.min(12)).expect("clamped"),
+        )
+    }
+
+    /// Coarse material class for rendering: 1 earth, 2 stone, 3 timber.
+    #[must_use]
+    pub fn wall_class(&self) -> u8 {
+        if self.wall.word.contains("stone") {
+            2
+        } else if self.wall.word.contains("timber") {
+            3
+        } else {
+            1
+        }
+    }
+
+    /// Ground-working designs are plots, not rooms.
+    #[must_use]
+    pub fn is_groundwork(&self) -> bool {
+        let a = &self.aspects;
+        a.worked_ground_milli
+            >= a.capacity_milli
+                .max(a.cover_milli)
+                .max(a.hearth_milli)
+                .max(a.enclosure_milli)
+    }
 }
 
 /// Derive the building this tile would raise under an emphasis. Pure and
@@ -152,6 +191,7 @@ pub fn design(
         roof,
         footing_milli,
         aspects,
+        area_milli: area * 10,
         name,
         integrity_milli,
         months,
@@ -232,6 +272,14 @@ mod tests {
         assert!(sheltering.aspects.cover_milli > roomy.aspects.cover_milli);
         assert!(worked.aspects.worked_ground_milli > roomy.aspects.worked_ground_milli);
         assert!(worked.name.contains("field-works"));
+
+        // Size is real: floor effort sets the footprint.
+        let (rw, rd) = roomy.footprint();
+        let (hw, hd) = design(3, &ground, &rocks, &flora, &fields, t, &st).footprint();
+        assert!(
+            u16::from(rw) * u16::from(rd) > u16::from(hw) * u16::from(hd),
+            "a roomy raising takes more ground than a hearth-warm one"
+        );
 
         // Determinism.
         let again = design(0, &ground, &rocks, &flora, &fields, t, &st);
