@@ -192,6 +192,8 @@ impl LocalFolk {
         }
         let slow = if cell(map, p).is_some_and(|c| map.tree[c]) {
             TREE_SLOW
+        } else if cell(map, p).is_some_and(|c| map.paths[c]) {
+            1.25 // the trodden way is quick
         } else {
             1.0
         };

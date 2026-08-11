@@ -257,6 +257,14 @@ fn draw_camp(rgb: &mut [u8], map: &LocalMap, cx: u32, cy: u32) {
             }
         }
     }
+    // The worn ways first: bare trodden earth under everything raised.
+    for (at, &worn) in map.paths.iter().enumerate() {
+        if worn {
+            let x = i64::try_from(at % map.size as usize).expect("bounded");
+            let y = i64::try_from(at / map.size as usize).expect("bounded");
+            paint(x, y, (168, 148, 112));
+        }
+    }
     // Raised buildings paint themselves from the built layer: walls in
     // their material, roofs lighter within (docs/30 — size is real).
     for (at, &b) in map.built.iter().enumerate() {

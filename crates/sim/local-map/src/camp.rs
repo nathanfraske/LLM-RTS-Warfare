@@ -55,7 +55,8 @@ pub(crate) fn raise_buildings(
     buildings: &[Design],
     cx: u32,
     cy: u32,
-) {
+) -> Vec<(i64, i64, i64, i64)> {
+    let mut placed = Vec::new();
     for design in buildings.iter().filter(|d| !d.is_groundwork()) {
         let (w, d) = design.footprint();
         let Some((x0, y0)) = best_site(
@@ -79,7 +80,9 @@ pub(crate) fn raise_buildings(
                 built[at] = if rim { class } else { class + 10 };
             }
         }
+        placed.push((x0, y0, i64::from(w), i64::from(d)));
     }
+    placed
 }
 
 /// The cheapest buildable rectangle: dry and unclaimed throughout, then
@@ -252,7 +255,7 @@ mod tests {
         // Determinism: same land, same builders, same village.
         let mut built2 = vec![0u8; cells];
         let mut tree2 = vec![false; cells];
-        raise_buildings(
+        let _ = raise_buildings(
             &mut built2,
             &mut tree2,
             &water,

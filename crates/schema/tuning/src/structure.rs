@@ -35,6 +35,11 @@ pub struct Structures {
     pub initiative_pop: u16,
     /// Establishment share that asks for worked ground, per mille.
     pub initiative_establish_permille: u16,
+    /// Path cells per destination that count as a fair walk — layouts
+    /// shorter than this reward, longer punish.
+    pub path_norm_cells: u16,
+    /// Labor won or lost at the extremes of layout quality, per mille.
+    pub planning_gain_permille: u16,
 }
 
 impl Default for Structures {
@@ -54,6 +59,8 @@ impl Default for Structures {
             initiative_store_permille: 800,
             initiative_pop: 150,
             initiative_establish_permille: 400,
+            path_norm_cells: 44,
+            planning_gain_permille: 200,
         }
     }
 }

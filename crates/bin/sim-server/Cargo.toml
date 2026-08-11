@@ -16,6 +16,7 @@ regolith = { workspace = true }
 geology = { workspace = true }
 wildfire = { workspace = true }
 structures = { workspace = true }
+local-map = { workspace = true }
 sim-clock = { workspace = true }
 sim-events = { workspace = true }
 world-map = { workspace = true }

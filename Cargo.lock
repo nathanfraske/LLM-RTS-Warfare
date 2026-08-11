@@ -3070,6 +3070,7 @@ dependencies = [
  "flora",
  "geology",
  "knowledge",
+ "local-map",
  "nations",
  "policy",
  "readouts",

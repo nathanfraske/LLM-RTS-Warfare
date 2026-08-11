@@ -91,6 +91,7 @@ impl Economy {
         flora_live: &mut [u8],
         sky: &Climate,
         ground: &mut Regolith,
+        layouts: &BTreeMap<u32, (usize, u16)>,
         all_cohorts: &Cohorts,
         tun: &Tuning,
     ) -> MonthFood {
@@ -113,6 +114,20 @@ impl Economy {
             if workers <= Quantity::ZERO {
                 continue;
             }
+            // Well-planned ground pays in labor (docs/30): short walks
+            // between hearth, store, field, and water free working hours;
+            // sprawl eats them.
+            let workers = match layouts.get(&t) {
+                Some(&(_, layout)) if layout > 0 => {
+                    let norm = i64::from(tun.structures.path_norm_cells) * 10;
+                    let swing = (norm - i64::from(layout)).clamp(-norm, norm);
+                    let gain = Quantity::from_num(swing)
+                        * Quantity::from_num(tun.structures.planning_gain_permille)
+                        / Quantity::from_num(norm * 1000);
+                    workers * (Quantity::ONE + gain)
+                }
+                _ => workers,
+            };
             let entry = self.tiles.entry(t).or_default();
             autopilot_weights(
                 &mut world.nations[ni].policy,

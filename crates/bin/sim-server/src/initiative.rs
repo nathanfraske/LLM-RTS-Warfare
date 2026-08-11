@@ -10,6 +10,43 @@ use world_schema::{Quantity, Tick, TileId};
 use crate::World;
 
 impl World {
+    /// The settlement's walking geometry, cached per (tile, building
+    /// count): recomputed only when something new stands (docs/30 —
+    /// well-planned ground pays in labor).
+    pub(crate) fn refresh_layouts(&mut self) {
+        for (tile, owner) in self.nations.owner.iter().enumerate() {
+            if owner.is_none() {
+                continue;
+            }
+            let t = u32::try_from(tile).expect("tile fits");
+            let count = self.nations.works.load(t);
+            let stale = self
+                .layouts
+                .get(&t)
+                .is_none_or(|&(cached_count, _)| cached_count != count);
+            if !stale {
+                continue;
+            }
+            let designs: Vec<structures::Design> = self
+                .nations
+                .works
+                .completed(t)
+                .iter()
+                .map(|b| b.design.clone())
+                .collect();
+            let map = local_map::generate(
+                self.seed,
+                &self.genesis.fields,
+                &self.genesis.flora,
+                world_schema::TileId(t),
+                true,
+                &designs,
+                &self.flora_live,
+            );
+            self.layouts.insert(t, (count, map.layout_milli));
+        }
+    }
+
     /// One self-build at most per nation per month, by the loudest need.
     pub(crate) fn initiative(&mut self, tick: Tick) {
         let st = self.tuning.structures.clone();

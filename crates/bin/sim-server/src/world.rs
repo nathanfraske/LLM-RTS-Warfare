@@ -38,6 +38,9 @@ pub struct World {
     pub regolith: Regolith,
     /// Fire in the world (docs/26): what is burning right now.
     pub blaze: Blaze,
+    /// Per settled tile: (building count, mean-walk layout) — the number
+    /// well-planned ground earns on (docs/30).
+    pub layouts: std::collections::BTreeMap<u32, (usize, u16)>,
     pub economy: Economy,
     pub log: EventLog,
     pub table: &'static [species::Species],
@@ -101,6 +104,7 @@ impl World {
             climate: sky,
             regolith: ground,
             blaze,
+            layouts: std::collections::BTreeMap::new(),
             economy: Economy::default(),
             log,
             table,
@@ -141,6 +145,7 @@ impl World {
         let delta = self.demography(tick, &food);
         self.movement(tick, &food);
         self.initiative(tick);
+        self.refresh_layouts();
         self.refresh_home_knowledge(tick);
         self.log.push(Event::MonthClosed {
             tick,
@@ -175,6 +180,7 @@ impl World {
             &mut self.flora_live,
             &self.climate,
             &mut self.regolith,
+            &self.layouts,
             &self.cohorts,
             &self.tuning,
         );

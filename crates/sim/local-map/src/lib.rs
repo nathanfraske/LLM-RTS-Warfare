@@ -5,6 +5,7 @@
 //! edges because detail noise is keyed by global cell coordinates.
 
 mod camp;
+mod paths;
 
 use flora::{FloraMap, NO_FLORA};
 use sim_events::rng;
@@ -12,6 +13,7 @@ use sim_events::{SystemId, WorldSeed};
 use structures::Design;
 
 use crate::camp::{clear_farm_plot, place_camp, raise_buildings};
+use crate::paths::tread_paths;
 use world_map::noise::{self, Channel};
 use world_map::{Water, WorldFields};
 use world_schema::{Tick, TileId};
@@ -39,6 +41,11 @@ pub struct LocalMap {
     /// Built ground per cell: 0 open; 1-3 walls (earth/stone/timber);
     /// 11-13 the roofed interior of the same classes.
     pub built: Vec<u8>,
+    /// Ground worn bare by feet: the paths people actually walk.
+    pub paths: Vec<bool>,
+    /// The settlement's mean walk per destination, cells ×10 — what good
+    /// planning earns on (docs/30).
+    pub layout_milli: u16,
 }
 
 /// Generate the local map for `tile`. `populated` places the camp.
@@ -103,11 +110,17 @@ pub fn generate(
 
     let camp = populated.then(|| place_camp(&water, &mut tree));
     let mut built = vec![0u8; (LOCAL_SIZE * LOCAL_SIZE) as usize];
+    let mut paths = vec![false; (LOCAL_SIZE * LOCAL_SIZE) as usize];
+    let mut layout_milli = 0u16;
     if let Some((cx, cy)) = camp {
-        if buildings.iter().any(Design::is_groundwork) {
+        let has_plot = buildings.iter().any(Design::is_groundwork);
+        if has_plot {
             clear_farm_plot(&mut tree, cx, cy);
         }
-        raise_buildings(&mut built, &mut tree, &water, &elevation, buildings, cx, cy);
+        let placed = raise_buildings(&mut built, &mut tree, &water, &elevation, buildings, cx, cy);
+        let (trodden, layout) = tread_paths(&built, &water, &placed, has_plot, cx, cy);
+        paths = trodden;
+        layout_milli = layout;
     }
 
     LocalMap {
@@ -119,6 +132,8 @@ pub fn generate(
         camp,
         works: buildings.iter().map(|d| d.name.clone()).collect(),
         built,
+        paths,
+        layout_milli,
     }
 }
 
