@@ -92,6 +92,12 @@ pub enum Event {
         tile: TileId,
         species: SpeciesId,
     },
+    /// The fire below broke out (docs/29): lava ran `reach` tiles downtree.
+    VolcanoErupted {
+        tick: Tick,
+        tile: TileId,
+        reach: u32,
+    },
     MonthClosed {
         tick: Tick,
         births: Quantity,

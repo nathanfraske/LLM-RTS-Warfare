@@ -5,7 +5,8 @@
 //! process is a movement through it. Fertility is derived, never stored
 //! as a verdict. `movements` runs the monthly passes.
 
-mod movements;
+mod transport;
+mod weathering;
 
 use tuning::Ground;
 use world_map::{WorldFields, tiles};
@@ -96,9 +97,31 @@ impl Regolith {
         se: &tuning::Seasons,
         g: &Ground,
     ) {
-        movements::weather_and_grow(self, fields, sky, flora_live, month, se, g);
-        movements::wash(self, fields, sky, g);
+        weathering::weather_and_grow(self, fields, sky, flora_live, month, se, g);
+        transport::wash(self, fields, sky, g);
+        transport::slides(self, fields, g);
         self.refresh_fertility(fields, g);
+    }
+
+    /// The plow eats the soil (docs/27): sustained cultivation mineralizes
+    /// organic matter back to fines. Fallow ground rebuilds it through the
+    /// ordinary root movement.
+    pub fn farm_wear(&mut self, tile: usize, worked_milli: u16, g: &Ground) {
+        let wear = u8::try_from(u32::from(g.farm_wear) * u32::from(worked_milli.min(1000)) / 1000)
+            .expect("bounded")
+            .min(self.organic[tile]);
+        self.organic[tile] -= wear;
+        self.fines[tile] = self.fines[tile].saturating_add(wear);
+    }
+
+    /// A lava run or rockfall buries the column: everything becomes
+    /// fresh rock, for the weathering rules to work back down.
+    pub fn bury_in_rock(&mut self, tile: usize) {
+        self.rock[tile] = u8::try_from(crate::COLUMN).expect("column fits");
+        self.coarse[tile] = 0;
+        self.sand[tile] = 0;
+        self.fines[tile] = 0;
+        self.organic[tile] = 0;
     }
 
     /// Live fertility, derived from what the ground is made of.
@@ -147,7 +170,7 @@ impl Regolith {
 
 /// Steepest rise or drop to a *land* neighbor — the sea floor's depth is
 /// not a cliff face on the shore.
-fn slope_of(fields: &WorldFields, tile: usize) -> i32 {
+pub(crate) fn slope_of(fields: &WorldFields, tile: usize) -> i32 {
     let (neighbors, n) = fields.grid().neighbors8(tile);
     neighbors[..n]
         .iter()
@@ -155,4 +178,62 @@ fn slope_of(fields: &WorldFields, tile: usize) -> i32 {
         .map(|&nb| (fields.elevation[tile] - fields.elevation[nb]).abs())
         .max()
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+pub(crate) mod testkit {
+    use world_map::WorldFields;
+    use world_map::hydrology::Water as W;
+
+    pub(crate) fn strip(elevations: [i32; 3], moisture: [u8; 3], temp: [i16; 3]) -> WorldFields {
+        WorldFields {
+            size: 3,
+            elevation: vec![
+                elevations[0],
+                elevations[1],
+                elevations[2],
+                -100,
+                -100,
+                -100,
+                -100,
+                -100,
+                -100,
+            ],
+            water: vec![W::Dry; 9],
+            flow_acc: vec![1; 9],
+            drains_to: vec![
+                1,
+                2,
+                u32::MAX,
+                u32::MAX,
+                u32::MAX,
+                u32::MAX,
+                u32::MAX,
+                u32::MAX,
+                u32::MAX,
+            ],
+            temperature: vec![temp[0], temp[1], temp[2], 100, 100, 100, 100, 100, 100],
+            moisture: vec![
+                moisture[0],
+                moisture[1],
+                moisture[2],
+                100,
+                100,
+                100,
+                100,
+                100,
+                100,
+            ],
+            cell_fertility: vec![100; 9],
+        }
+    }
+
+    pub(crate) fn still_sky(cells: usize, delivered: u16) -> climate::Climate {
+        climate::Climate {
+            wet: vec![100; cells],
+            snowpack: vec![0; cells],
+            growth: vec![500; cells],
+            delivered: vec![delivered; cells],
+        }
+    }
 }

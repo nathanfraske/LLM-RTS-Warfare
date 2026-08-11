@@ -16,7 +16,11 @@ fn stamp(tick: Tick) -> String {
 pub fn chronicle(id: NationId, world: &WorldNations, log: &EventLog, limit: usize) -> Vec<String> {
     let mut lines: Vec<String> = log
         .iter()
-        .filter_map(|e| council_line(e, id).or_else(|| world_line(e, id, world)))
+        .filter_map(|e| {
+            council_line(e, id)
+                .or_else(|| calamity_line(e, id, world))
+                .or_else(|| world_line(e, id, world))
+        })
         .collect();
     if lines.len() > limit {
         lines.drain(..lines.len() - limit);
@@ -141,6 +145,23 @@ fn world_line(e: &Event, id: NationId, world: &WorldNations) -> Option<String> {
         Event::NationsMet { tick, a, b } if *a == id || *b == id => {
             let other = if *a == id { *b } else { *a };
             Some(format!("{} — we met {}", stamp(*tick), name_of(other)))
+        }
+        _ => None,
+    }
+}
+
+/// The world's violence: fire and hunger, as this nation felt them.
+fn calamity_line(e: &Event, id: NationId, world: &WorldNations) -> Option<String> {
+    match e {
+        Event::VolcanoErupted { tick, tile, .. }
+            if world.owner[tile.0 as usize] == Some(id)
+                || world.owned_tiles(id).any(|t| t.0.abs_diff(tile.0) < 600) =>
+        {
+            Some(format!(
+                "{} — the mountain at tile {} burst into fire",
+                stamp(*tick),
+                tile.0
+            ))
         }
         Event::Famine {
             tick,

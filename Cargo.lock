@@ -1333,6 +1333,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "geology"
+version = "0.0.1"
+dependencies = [
+ "sim-events",
+ "tuning",
+ "world-map",
+ "world-schema",
+]
+
+[[package]]
 name = "gethostname"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1928,6 +1938,7 @@ dependencies = [
  "flora",
  "sim-events",
  "sim-server",
+ "tuning",
  "world-map",
 ]
 
@@ -3051,6 +3062,7 @@ dependencies = [
  "economy",
  "fauna",
  "flora",
+ "geology",
  "knowledge",
  "nations",
  "policy",

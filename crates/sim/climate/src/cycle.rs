@@ -131,7 +131,8 @@ pub(crate) fn rain_snow_and_gate(
 
 /// Wind direction for a row: trades blow one way, westerlies the other,
 /// polar easterlies again — thirds of each hemisphere's latitude.
-fn wind_dx(y: usize, size: usize) -> isize {
+#[must_use]
+pub fn wind_dx(y: usize, size: usize) -> isize {
     let half = size / 2;
     let from_equator = y.abs_diff(half) * 3 / half.max(1);
     if from_equator == 1 { 1 } else { -1 }

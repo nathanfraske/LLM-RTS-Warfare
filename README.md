@@ -50,6 +50,7 @@ See [01a-foundation](docs/01a-foundation.md) for bootstrap from a bare machine.
 | [26-living-terrain](docs/26-living-terrain.md) | The water cycle, snow, erosion, soil, day and night — field passes, never fluid dynamics |
 | [27-the-ground](docs/27-the-ground.md) | Regolith as composition — grain ladder, weathering, wash, emergent deserts and loam |
 | [28-light-and-shadow](docs/28-light-and-shadow.md) | Sun and moon over the land — live hillshading, cast tree shadows, moonlit relief |
+| [29-the-underground](docs/29-the-underground.md) | Generated geology — mineral species, event history, veins, caves, faults, live volcanism |
 
 ## Stack (decided)
 

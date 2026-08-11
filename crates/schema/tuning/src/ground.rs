@@ -23,6 +23,15 @@ pub struct Ground {
     pub rot_loss: u8,
     /// Fines winnowed toward sand per dry, bare month, points.
     pub winnow: u8,
+    /// Share of winnowed fines that hop to the downwind tile, per mille —
+    /// dunes on bare ground, loess where vegetation traps them.
+    pub winnow_hop_permille: u16,
+    /// Land-neighbor slope above which loose scree slides downtree.
+    pub slide_slope: i32,
+    /// Coarse shed downtree per sliding month, points.
+    pub slide: u8,
+    /// Organic spent per fully-cultivated month — the plow eats the soil.
+    pub farm_wear: u8,
     /// Fertility weights per composition part, per mille of contribution.
     pub fert_organic_permille: u16,
     pub fert_fines_permille: u16,
@@ -46,6 +55,10 @@ impl Default for Ground {
             root_build: 3,
             rot_loss: 2,
             winnow: 3,
+            winnow_hop_permille: 500,
+            slide_slope: 700,
+            slide: 3,
+            farm_wear: 2,
             fert_organic_permille: 1000,
             fert_fines_permille: 900,
             fert_sand_permille: 80,

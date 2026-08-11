@@ -236,6 +236,15 @@ fn worldly_line(event: &Event, world: &World) -> Option<Line> {
             format!("{} · hunger in tile {}", stamp(*tick), tile.0),
             Kind::Alarm,
         ),
+        Event::VolcanoErupted { tick, tile, reach } => (
+            format!(
+                "{} · the mountain at tile {} erupts — lava runs {} tiles",
+                stamp(*tick),
+                tile.0,
+                reach
+            ),
+            Kind::Alarm,
+        ),
         _ => return None,
     };
     Some(Line { text, kind })

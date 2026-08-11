@@ -53,15 +53,30 @@ impl Default for RunConfig {
 pub struct Genesis {
     pub fields: WorldFields,
     pub flora: FloraMap,
+    pub geology: geology::Geology,
 }
 
 /// Dawn-of-time world creation (docs/13-worldgen.md): physical fields at
-/// world-tile resolution, then flora settling. Tiles are the provinces.
+/// world-tile resolution, then the underground (docs/29 — its vents warm
+/// the surface before life is seeded), then flora settling over the
+/// warmed ground. Tiles are the provinces.
 #[must_use]
-pub fn genesis(seed: WorldSeed, map_size: u32, flora_species: u16) -> Genesis {
-    let fields = WorldFields::generate(seed, map_size);
+pub fn genesis(seed: WorldSeed, map_size: u32, flora_species: u16, deep: &tuning::Deep) -> Genesis {
+    let mut fields = WorldFields::generate(seed, map_size);
+    let underground = geology::Geology::genesis(seed, &fields, deep);
+    for (t, warmth) in underground
+        .geothermal(&fields, deep)
+        .into_iter()
+        .enumerate()
+    {
+        fields.temperature[t] = fields.temperature[t].saturating_add(warmth);
+    }
     let flora = flora::settle::settle(seed, &fields, flora_species);
-    Genesis { fields, flora }
+    Genesis {
+        fields,
+        flora,
+        geology: underground,
+    }
 }
 
 #[derive(Debug)]

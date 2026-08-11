@@ -6,6 +6,8 @@
 
 mod cycle;
 
+pub use cycle::wind_dx;
+
 use tuning::{Seasons, Weather};
 use world_map::WorldFields;
 use world_schema::Quantity;

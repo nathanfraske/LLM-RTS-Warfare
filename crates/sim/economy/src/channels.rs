@@ -60,12 +60,13 @@ pub fn extract(
     econ: &mut TileEconomy,
     works: &Works,
     sky: &Climate,
-    ground: &Regolith,
+    ground: &mut Regolith,
     tile: usize,
     sub: &Subsistence,
     eco: &Ecology,
     society: &Society,
     wx: &Weather,
+    grd: &tuning::Ground,
 ) -> ChannelYields {
     let share = shares(labor_milli);
     let mut out = ChannelYields::default();
@@ -114,6 +115,13 @@ pub fn extract(
         + share[3] * Quantity::from_num(sub.establish_rate) * growth
         - Quantity::from_num(sub.establish_decay))
     .clamp(Quantity::ZERO, Quantity::ONE);
+    // The plow eats the soil (docs/27): worked ground loses organic matter.
+    if share[3] > Quantity::ZERO {
+        let worked = (share[3] * Quantity::from_num(1000))
+            .to_num::<i64>()
+            .clamp(0, 1000);
+        ground.farm_wear(tile, u16::try_from(worked).expect("clamped"), grd);
+    }
 
     // Herd: seeded by capturing wild grazers, grown on pasture, eaten steadily.
     let crew = workers * share[4];

@@ -90,7 +90,7 @@ impl Economy {
         wild: &mut Fauna,
         flora_live: &mut [u8],
         sky: &Climate,
-        ground: &Regolith,
+        ground: &mut Regolith,
         all_cohorts: &Cohorts,
         tun: &Tuning,
     ) -> MonthFood {
@@ -120,7 +120,7 @@ impl Economy {
                 wild,
                 flora_live,
                 sky,
-                ground,
+                &*ground,
                 entry,
                 t as usize,
                 &tun.subsistence,
@@ -142,6 +142,7 @@ impl Economy {
                 &tun.ecology,
                 &tun.society,
                 &tun.weather,
+                &tun.ground,
             );
 
             entry.stock += yields.total();

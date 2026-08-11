@@ -32,7 +32,7 @@ fn main() {
         _ => usage(),
     };
 
-    let genesis = sim_server::genesis(WorldSeed(seed), size, 24);
+    let genesis = sim_server::genesis(WorldSeed(seed), size, 24, &tuning::Deep::default());
     let cells = genesis.fields.grid().cells();
     let rgb: Vec<palette::Rgb> = (0..cells).map(|i| color(&genesis, i)).collect();
 

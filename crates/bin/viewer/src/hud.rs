@@ -91,6 +91,7 @@ pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<TileId>) {
     ));
     if fields.elevation[tile] >= 0 {
         ui.label(format!("Ground: {}", world.regolith.describe(tile)));
+        ui.label(format!("Beneath: {}", world.genesis.geology.describe(tile)));
     }
     if let Some(owner) = world.nations.owner[tile] {
         let nation = world
