@@ -74,7 +74,13 @@ impl LocalView {
         }
     }
 
-    pub fn canvas(&mut self, ui: &mut egui::Ui, dt: f32, paused: bool) {
+    pub fn canvas(
+        &mut self,
+        ui: &mut egui::Ui,
+        dt: f32,
+        paused: bool,
+        night: Option<egui::Color32>,
+    ) {
         let (response, painter) =
             ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
         let rect = response.rect;
@@ -102,5 +108,8 @@ impl LocalView {
                 .set(layers::local_image(&self.map), TextureOptions::NEAREST);
         }
         self.folk.draw(&painter, &self.cam, rect);
+        if let Some(tint) = night {
+            painter.rect_filled(rect, 0.0, tint);
+        }
     }
 }

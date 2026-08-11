@@ -26,6 +26,9 @@ pub struct Hydrology {
     pub flow_acc: Vec<u32>,
     /// Water surface height (differs from ground inside lakes).
     pub filled: Vec<i32>,
+    /// Each cell's outflow neighbor in the drainage tree; `u32::MAX` at
+    /// the border sinks. Flow animation, discharge, and sediment ride it.
+    pub drains_to: Vec<u32>,
 }
 
 #[must_use]
@@ -85,10 +88,15 @@ pub fn compute(grid: Grid, elevation: &[i32]) -> Hydrology {
         })
         .collect();
 
+    let drains_to = drains_to
+        .iter()
+        .map(|&d| if d == usize::MAX { u32::MAX } else { d as u32 })
+        .collect();
     Hydrology {
         water,
         flow_acc,
         filled,
+        drains_to,
     }
 }
 

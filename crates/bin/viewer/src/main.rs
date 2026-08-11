@@ -12,6 +12,8 @@ mod hud;
 mod layers;
 mod localfolk;
 mod localview;
+mod sky;
+mod waters;
 
 use eframe::egui;
 

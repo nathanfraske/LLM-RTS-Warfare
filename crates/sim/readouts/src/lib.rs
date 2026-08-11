@@ -10,6 +10,7 @@ mod sections;
 use std::fmt::Write as _;
 
 use chronicle::chronicle;
+use climate::Climate;
 use cohorts::{CohortKey, Cohorts};
 use economy::Economy;
 use fauna::Fauna;
@@ -39,6 +40,7 @@ pub fn nation_report(
     fields: &WorldFields,
     wild: &Fauna,
     flora_live: &[u8],
+    sky: &Climate,
     econ: &Economy,
     table: &[Species],
     all_cohorts: &Cohorts,
@@ -78,7 +80,7 @@ pub fn nation_report(
     );
     sections::territory(&mut out, nation_id, world, fields, econ, all_cohorts);
     sections::labor(
-        &mut out, nation_id, world, fields, wild, flora_live, econ, tun,
+        &mut out, nation_id, world, fields, wild, flora_live, sky, econ, tun,
     );
     sections::works(&mut out, nation_id, world);
     lands::known_lands(&mut out, nation_id, world, fields, known, now, tun);

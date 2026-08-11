@@ -11,6 +11,7 @@ pub mod channels;
 use std::collections::BTreeMap;
 
 use channels::{CHANNEL_SUMMARIES, CHANNELS, ChannelYields, LABOR_KEYS};
+use climate::Climate;
 use cohorts::{CohortKey, Cohorts};
 use fauna::Fauna;
 use nations::WorldNations;
@@ -80,12 +81,14 @@ pub struct MonthFood {
 
 impl Economy {
     /// One month: allocate labor, extract from the living world, eat, store.
+    #[allow(clippy::too_many_arguments)]
     pub fn tick_month(
         &mut self,
         world: &mut WorldNations,
         fields: &WorldFields,
         wild: &mut Fauna,
         flora_live: &mut [u8],
+        sky: &Climate,
         all_cohorts: &Cohorts,
         tun: &Tuning,
     ) -> MonthFood {
@@ -114,9 +117,11 @@ impl Economy {
                 fields,
                 wild,
                 flora_live,
+                sky,
                 entry,
                 t as usize,
                 &tun.subsistence,
+                &tun.weather,
             );
             let labor = labor_milli(&world.nations[ni].policy);
             let yields = channels::extract(
@@ -127,10 +132,12 @@ impl Economy {
                 flora_live,
                 entry,
                 &world.works,
+                sky,
                 t as usize,
                 &tun.subsistence,
                 &tun.ecology,
                 &tun.society,
+                &tun.weather,
             );
 
             entry.stock += yields.total();
@@ -193,32 +200,37 @@ pub fn potential(
     fields: &WorldFields,
     wild: &Fauna,
     flora_live: &[u8],
+    sky: &Climate,
     tile: usize,
     sub: &tuning::Subsistence,
+    wx: &tuning::Weather,
 ) -> Quantity {
     if fields.elevation[tile] < 0 {
         return Quantity::ZERO;
     }
-    channels::potential(fields, wild, flora_live, tile, sub)
+    channels::potential(fields, wild, flora_live, sky, tile, sub, wx)
 }
 
 /// Undirected weights follow marginal returns: shift a step toward the best
 /// channel, away from the worst. Deterministic, slow, unbiased — and it
 /// never touches a leaf the council has pinned (docs/20).
+#[allow(clippy::too_many_arguments)]
 fn autopilot_weights(
     tree: &mut PolicyTree,
     fields: &WorldFields,
     wild: &Fauna,
     flora_live: &[u8],
+    sky: &Climate,
     tile_econ: &TileEconomy,
     tile: usize,
     sub: &tuning::Subsistence,
+    wx: &tuning::Weather,
 ) {
     let labor = labor_milli(tree);
     let free: Vec<usize> = (0..CHANNELS)
         .filter(|&i| !tree.directed(LABOR_KEYS[i]))
         .collect();
-    let marginal = channels::marginal(fields, wild, flora_live, tile_econ, tile, sub);
+    let marginal = channels::marginal(fields, wild, flora_live, tile_econ, sky, tile, sub, wx);
     let best = free
         .iter()
         .copied()

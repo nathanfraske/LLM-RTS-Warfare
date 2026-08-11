@@ -13,12 +13,14 @@ mod ecology;
 mod exploration;
 mod society;
 mod subsistence;
+mod weather;
 
 pub use bodies::Bodies;
 pub use ecology::Ecology;
 pub use exploration::Exploration;
 pub use society::Society;
 pub use subsistence::Subsistence;
+pub use weather::{Seasons, Sky, Weather};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -28,4 +30,7 @@ pub struct Tuning {
     pub society: Society,
     pub exploration: Exploration,
     pub bodies: Bodies,
+    pub seasons: Seasons,
+    pub weather: Weather,
+    pub sky: Sky,
 }

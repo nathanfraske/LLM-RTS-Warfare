@@ -3,6 +3,7 @@
 //! state and the strict monthly order: upkeep, wild world, harvest,
 //! demography, movement, ledger close.
 
+use climate::Climate;
 use cohorts::CohortDrive;
 use directive_schema::DirectiveEntry;
 use economy::Economy;
@@ -30,6 +31,8 @@ pub struct World {
     pub fauna: Fauna,
     /// Living vegetation — genesis density is the regrowth baseline.
     pub flora_live: Vec<u8>,
+    /// The sky and the snow: seasonal forcing and the water cycle (docs/26).
+    pub climate: Climate,
     pub economy: Economy,
     pub log: EventLog,
     pub table: &'static [species::Species],
@@ -63,6 +66,7 @@ impl World {
         );
         let all_cohorts = nations::found_cohorts(seed, &nations, &tuning.society);
         let flora_live = genesis.flora.density.clone();
+        let sky = Climate::genesis(&genesis.fields, &tuning.weather, &tuning.seasons);
         let wild = Fauna::genesis(
             seed,
             &genesis.fields,
@@ -95,6 +99,7 @@ impl World {
             cohorts: all_cohorts,
             fauna: wild,
             flora_live,
+            climate: sky,
             economy: Economy::default(),
             log,
             table,
@@ -156,10 +161,17 @@ impl World {
             let WorldNations { works, owner, .. } = &mut self.nations;
             works.tick_month(owner, tick, &mut self.log);
         }
+        self.climate.tick_month(
+            &self.genesis.fields,
+            tick.0 / 720,
+            &self.tuning.weather,
+            &self.tuning.seasons,
+        );
         flora::regrow_month(
             &mut self.flora_live,
             &self.genesis.flora.density,
             self.tuning.ecology.regrow_divisor,
+            &self.climate.growth,
         );
         fauna::dynamics::tick_month(
             &mut self.fauna,
@@ -176,6 +188,7 @@ impl World {
             &self.genesis.fields,
             &mut self.fauna,
             &mut self.flora_live,
+            &self.climate,
             &self.cohorts,
             &self.tuning,
         );
@@ -233,8 +246,11 @@ impl World {
             let fields = &self.genesis.fields;
             let wild = &self.fauna;
             let flora_live = &self.flora_live;
+            let sky = &self.climate;
             let sub = &self.tuning.subsistence;
-            let potential = |t: usize| economy::potential(fields, wild, flora_live, t, sub);
+            let wx = &self.tuning.weather;
+            let potential =
+                |t: usize| economy::potential(fields, wild, flora_live, sky, t, sub, wx);
             nations::autopilot::tick_month(
                 tick,
                 self.seed,

@@ -14,6 +14,7 @@ cohorts = { workspace = true }
 species = { workspace = true }
 nations = { workspace = true }
 knowledge = { workspace = true }
+climate = { workspace = true }
 policy = { workspace = true }
 fauna = { workspace = true }
 economy = { workspace = true }

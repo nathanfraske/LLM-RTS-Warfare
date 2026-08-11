@@ -24,6 +24,8 @@ pub struct WorldFields {
     pub elevation: Vec<i32>,
     pub water: Vec<Water>,
     pub flow_acc: Vec<u32>,
+    /// Outflow neighbor per cell (docs/26); `u32::MAX` at border sinks.
+    pub drains_to: Vec<u32>,
     /// Deci-°C.
     pub temperature: Vec<i16>,
     /// 0–255.
@@ -48,6 +50,7 @@ impl WorldFields {
             elevation,
             water: hydro.water,
             flow_acc: hydro.flow_acc,
+            drains_to: hydro.drains_to,
             temperature,
             moisture,
             cell_fertility,

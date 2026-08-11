@@ -12,10 +12,36 @@ pub fn terrain_image(world: &World) -> ColorImage {
     let size = world.genesis.fields.size as usize;
     let mut rgb = Vec::with_capacity(size * size * 3);
     for i in 0..size * size {
-        let (r, g, b) = palette::terrain(&world.genesis, i);
+        let (mut r, mut g, mut b) = palette::terrain(&world.genesis, i);
+        if world.genesis.fields.elevation[i] >= 0 {
+            // The turning year on the ground (docs/26): snow whitens the
+            // heights, and low growth browns the green.
+            let snow = u32::from(world.climate.snowpack[i]).min(300);
+            if snow > 0 {
+                let k = snow * 200 / 300;
+                r = blend(r, 240, k);
+                g = blend(g, 244, k);
+                b = blend(b, 250, k);
+            } else {
+                let growth = u32::from(world.climate.growth[i]);
+                if growth < 500 {
+                    let k = (500 - growth) * 90 / 500;
+                    r = blend(r, 168, k);
+                    g = blend(g, 142, k);
+                    b = blend(b, 96, k);
+                }
+            }
+        }
         rgb.extend_from_slice(&[r, g, b]);
     }
     ColorImage::from_rgb([size, size], &rgb)
+}
+
+/// Move `from` toward `to` by `k`/255.
+fn blend(from: u8, to: u8, k: u32) -> u8 {
+    let f = u32::from(from);
+    let t = u32::from(to);
+    u8::try_from((f * (255 - k) + t * k) / 255).expect("bounded")
 }
 
 /// One nation's fog: what it has never seen is near-black, stale memories

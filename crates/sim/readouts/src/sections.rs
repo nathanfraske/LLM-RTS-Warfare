@@ -3,6 +3,7 @@
 
 use std::fmt::Write as _;
 
+use climate::Climate;
 use cohorts::{CohortKey, Cohorts};
 use economy::Economy;
 use economy::channels::{CHANNEL_NAMES, CHANNELS, LABOR_KEYS};
@@ -96,6 +97,7 @@ pub(crate) fn labor(
     fields: &WorldFields,
     wild: &Fauna,
     flora_live: &[u8],
+    sky: &Climate,
     econ: &Economy,
     tun: &Tuning,
 ) {
@@ -147,8 +149,10 @@ Food per worker per month, by tile:
             wild,
             flora_live,
             &te,
+            sky,
             t.0 as usize,
             &tun.subsistence,
+            &tun.weather,
         );
         let mut parts: Vec<String> = Vec::new();
         for (i, name) in CHANNEL_NAMES.iter().enumerate() {

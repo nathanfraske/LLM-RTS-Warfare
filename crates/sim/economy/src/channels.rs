@@ -3,9 +3,10 @@
 //! channel's returns follow its real logic, none is gated by doctrine.
 
 use crate::TileEconomy;
+use climate::Climate;
 use fauna::Fauna;
 use nations::works::Works;
-use tuning::{Ecology, Society, Subsistence};
+use tuning::{Ecology, Society, Subsistence, Weather};
 use world_map::WorldFields;
 use world_schema::Quantity;
 
@@ -57,13 +58,21 @@ pub fn extract(
     flora_live: &mut [u8],
     econ: &mut TileEconomy,
     works: &Works,
+    sky: &Climate,
     tile: usize,
     sub: &Subsistence,
     eco: &Ecology,
     society: &Society,
+    wx: &Weather,
 ) -> ChannelYields {
     let share = shares(labor_milli);
     let mut out = ChannelYields::default();
+    // The turning year (docs/26): deep snow slows the hunt; growth gates
+    // the fields.
+    let snow_pen = Quantity::ONE
+        - sky.snow_frac(tile, wx) * Quantity::from_num(wx.hunt_snow_penalty_permille)
+            / Quantity::from_num(1000);
+    let growth = sky.growth_frac(tile);
 
     // Gather: the edible fraction of living vegetation, worn down by the taking.
     let crew = workers * share[0];
@@ -78,7 +87,11 @@ pub fn extract(
 
     // Hunt: biomass off the land species, refuge-limited inside `Fauna`.
     let crew = workers * share[1];
-    out.by[1] = wild.hunt(tile, crew * Quantity::from_num(sub.hunt_eff), eco);
+    out.by[1] = wild.hunt(
+        tile,
+        crew * Quantity::from_num(sub.hunt_eff) * snow_pen,
+        eco,
+    );
 
     // Fish: the waters here and next door.
     let crew = workers * share[2];
@@ -92,8 +105,10 @@ pub fn extract(
         * Quantity::from_num(sub.cultivate_eff)
         * fert
         * econ.establishment
+        * growth
         * works.cultivation_mult(tile as u32, society);
-    econ.establishment = (econ.establishment + share[3] * Quantity::from_num(sub.establish_rate)
+    econ.establishment = (econ.establishment
+        + share[3] * Quantity::from_num(sub.establish_rate) * growth
         - Quantity::from_num(sub.establish_decay))
     .clamp(Quantity::ZERO, Quantity::ONE);
 
@@ -123,14 +138,21 @@ pub fn extract(
 /// follows. Cultivation shows a bootstrap floor so sunk-cost channels are
 /// visible without being teleologically favored.
 #[must_use]
+#[allow(clippy::too_many_arguments)]
 pub fn marginal(
     fields: &WorldFields,
     wild: &Fauna,
     flora_live: &[u8],
     econ: &TileEconomy,
+    sky: &Climate,
     tile: usize,
     sub: &Subsistence,
+    wx: &Weather,
 ) -> [Quantity; CHANNELS] {
+    let snow_pen = Quantity::ONE
+        - sky.snow_frac(tile, wx) * Quantity::from_num(wx.hunt_snow_penalty_permille)
+            / Quantity::from_num(1000);
+    let growth = sky.growth_frac(tile);
     let flora_q = Quantity::from_num(flora_live[tile]) / Quantity::from_num(255);
     let fert = Quantity::from_num(fields.cell_fertility[tile]) / Quantity::from_num(255);
     let hunt_stock =
@@ -146,9 +168,9 @@ pub fn marginal(
         * flora_q;
     [
         Quantity::from_num(sub.gather_eff) * flora_q,
-        Quantity::from_num(sub.hunt_eff) * hunt_stock,
+        Quantity::from_num(sub.hunt_eff) * hunt_stock * snow_pen,
         Quantity::from_num(sub.fish_eff) * fish_stock,
-        Quantity::from_num(sub.cultivate_eff) * fert * establish,
+        Quantity::from_num(sub.cultivate_eff) * fert * establish * growth,
         Quantity::from_num(sub.herd_prospect_eff) * pasture_prospect,
     ]
 }
@@ -160,11 +182,13 @@ pub fn potential(
     fields: &WorldFields,
     wild: &Fauna,
     flora_live: &[u8],
+    sky: &Climate,
     tile: usize,
     sub: &Subsistence,
+    wx: &Weather,
 ) -> Quantity {
     let bare = TileEconomy::default();
-    let m = marginal(fields, wild, flora_live, &bare, tile, sub);
+    let m = marginal(fields, wild, flora_live, &bare, sky, tile, sub, wx);
     let mut sorted = m;
     sorted.sort_unstable_by(|a, b| b.cmp(a));
     // The two best channels a newcomer band could actually run.
@@ -183,6 +207,7 @@ mod tests {
             elevation: vec![10, 40, 30, -500],
             water: vec![W::River, W::Dry, W::Dry, W::Ocean],
             flow_acc: vec![90, 2, 1, 0],
+            drains_to: vec![u32::MAX; 4],
             temperature: vec![190, 200, 240, 180],
             moisture: vec![210, 170, 60, 220],
             cell_fertility: vec![140, 220, 40, 0],
@@ -198,6 +223,12 @@ mod tests {
         let flora = vec![40u8, 160, 70, 0];
         let eco = tuning::Ecology::default();
         let sub = Subsistence::default();
+        let wx = tuning::Weather::default();
+        let se = tuning::Seasons::default();
+        // High summer: the seasonal gate is open, so the comparative
+        // economics read clean.
+        let mut sky = Climate::genesis(&fields, &wx, &se);
+        sky.tick_month(&fields, u64::from(se.warm_month), &wx, &se);
         let wild = fauna::Fauna::genesis(
             sim_events::WorldSeed(7),
             &fields,
@@ -208,7 +239,7 @@ mod tests {
 
         // River tile with stocked waters: fishing must top the table.
         let bare = TileEconomy::default();
-        let river = marginal(&fields, &wild, &flora, &bare, 0, &sub);
+        let river = marginal(&fields, &wild, &flora, &bare, &sky, 0, &sub, &wx);
         let best_river = (0..CHANNELS).max_by_key(|&i| river[i].to_bits()).unwrap();
         assert_eq!(CHANNEL_NAMES[best_river], "fish");
 
@@ -217,13 +248,13 @@ mod tests {
             establishment: Quantity::ONE,
             ..TileEconomy::default()
         };
-        let fertile = marginal(&fields, &wild, &flora, &farmed, 1, &sub);
+        let fertile = marginal(&fields, &wild, &flora, &farmed, &sky, 1, &sub, &wx);
         let best_fertile = (0..CHANNELS).max_by_key(|&i| fertile[i].to_bits()).unwrap();
         assert_eq!(CHANNEL_NAMES[best_fertile], "cultivate");
 
         // The same fertile tile unestablished must NOT rank cultivation first —
         // agrarianism is an investment, not a default.
-        let unfarmed = marginal(&fields, &wild, &flora, &bare, 1, &sub);
+        let unfarmed = marginal(&fields, &wild, &flora, &bare, &sky, 1, &sub, &wx);
         let best_unfarmed = (0..CHANNELS)
             .max_by_key(|&i| unfarmed[i].to_bits())
             .unwrap();

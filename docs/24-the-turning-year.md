@@ -1,5 +1,7 @@
 # The Turning Year — Seasons as a World Condition
 
+> Realized and extended by [26-living-terrain](26-living-terrain.md): the seasonal forcing ships as the driver of the full water cycle. This document remains the seasonal design contract.
+
 The calendar has twelve months ([01](01-architecture.md): 720 ticks each) but the world doesn't know it: fields are frozen in an eternal noon and yields never move. Seasons make time a *force* — and they are an **input condition, not a constant**: the operator sets the year's shape per world and can reshape it at will.
 
 ## 1. One forcing, everywhere at once

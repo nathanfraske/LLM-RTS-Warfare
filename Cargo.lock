@@ -643,6 +643,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "climate"
+version = "0.0.1"
+dependencies = [
+ "sim-events",
+ "tuning",
+ "world-map",
+ "world-schema",
+]
+
+[[package]]
 name = "clipboard-win"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -875,6 +885,7 @@ dependencies = [
 name = "economy"
 version = "0.0.1"
 dependencies = [
+ "climate",
  "cohorts",
  "fauna",
  "flora",
@@ -2775,6 +2786,7 @@ dependencies = [
 name = "readouts"
 version = "0.0.1"
 dependencies = [
+ "climate",
  "cohorts",
  "economy",
  "fauna",
@@ -3021,6 +3033,7 @@ dependencies = [
 name = "sim-server"
 version = "0.0.1"
 dependencies = [
+ "climate",
  "cohorts",
  "directive-schema",
  "economy",
@@ -3591,6 +3604,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "viewer"
 version = "0.0.1"
 dependencies = [
+ "climate",
  "cohorts",
  "directive-schema",
  "economy",

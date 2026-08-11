@@ -93,12 +93,15 @@ impl FloraSpecies {
 
 /// Monthly regrowth of living vegetation toward its settled baseline
 /// (docs/19-ecology-and-subsistence.md — flora density is dynamic now).
-pub fn regrow_month(live: &mut [u8], baseline: &[u8], divisor: u8) {
+pub fn regrow_month(live: &mut [u8], baseline: &[u8], divisor: u8, growth: &[u16]) {
     let divisor = divisor.max(1);
-    for (l, &b) in live.iter_mut().zip(baseline) {
+    for (tile, (l, &b)) in live.iter_mut().zip(baseline).enumerate() {
         if *l < b {
             let gap = b - *l;
-            *l += (gap / divisor).max(1);
+            let step = u16::from((gap / divisor).max(1));
+            // The seasonal gate (docs/26): winter halts the green.
+            *l += u8::try_from(u32::from(step) * u32::from(growth[tile]) / 1000)
+                .expect("bounded by gap");
         }
     }
 }

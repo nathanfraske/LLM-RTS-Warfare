@@ -100,6 +100,7 @@ fn the_charter_renders_the_live_registry() {
         &world.genesis.fields,
         &world.fauna,
         &world.flora_live,
+        &world.climate,
         &world.economy,
         world.table,
         &world.cohorts,

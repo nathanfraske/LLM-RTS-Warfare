@@ -28,6 +28,7 @@ directive-schema = { path = "crates/schema/directive-schema" }
 policy = { path = "crates/schema/policy" }
 knowledge = { path = "crates/sim/knowledge" }
 anatomy = { path = "crates/sim/anatomy" }
+climate = { path = "crates/sim/climate" }
 sim-clock = { path = "crates/sim/sim-clock" }
 sim-events = { path = "crates/sim/sim-events" }
 world-map = { path = "crates/sim/world-map" }

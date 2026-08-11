@@ -17,6 +17,7 @@ readouts = { workspace = true }
 local-map = { workspace = true }
 fauna = { workspace = true }
 economy = { workspace = true }
+climate = { workspace = true }
 sim-server = { workspace = true }
 map-export = { path = "../map-export" }
 serde_json = { workspace = true }

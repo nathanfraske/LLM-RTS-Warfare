@@ -28,7 +28,10 @@ pub struct App {
     terrain: TextureHandle,
     territory: TextureHandle,
     territory_dirty: bool,
+    /// The month the terrain texture was last painted for (seasonal tint).
+    terrain_month: u64,
     fog: crate::fogview::FogView,
+    waters: crate::waters::Waters,
     seen_events: usize,
     feed: Vec<Line>,
     folk: Folk,
@@ -48,6 +51,7 @@ impl App {
             layers::territory_image(&world),
             TextureOptions::NEAREST,
         );
+        let waters = crate::waters::Waters::new(&world);
         let mut app = Self {
             cam: Camera::fit(world.genesis.fields.size, Vec2::new(1200.0, 800.0)),
             world,
@@ -58,7 +62,9 @@ impl App {
             terrain,
             territory,
             territory_dirty: false,
+            terrain_month: 0,
             fog: crate::fogview::FogView::default(),
+            waters,
             seen_events: 0,
             feed: Vec::new(),
             folk: Folk::default(),
@@ -169,9 +175,11 @@ impl App {
         let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
         painter.image(self.terrain.id(), map_rect, uv, egui::Color32::WHITE);
         painter.image(self.territory.id(), map_rect, uv, egui::Color32::WHITE);
+        self.waters.draw(&self.world, &self.cam, &painter, rect);
         self.fog.draw(&painter, map_rect, uv);
         self.folk.draw(&painter, &self.cam, rect);
         crate::fogview::draw_scouts(&self.world, &self.cam, &painter, rect);
+        crate::sky::draw_night(&self.world, &painter, rect, map_rect);
 
         let world_size = i64::from(self.world.genesis.fields.size);
         let cam = &self.cam;
@@ -234,6 +242,12 @@ impl eframe::App for App {
             );
             self.territory_dirty = false;
         }
+        let month = self.world.tick().0 / 720;
+        if month != self.terrain_month {
+            self.terrain
+                .set(layers::terrain_image(&self.world), TextureOptions::NEAREST);
+            self.terrain_month = month;
+        }
 
         self.fog.refresh(ui.ctx(), &self.world);
 
@@ -269,7 +283,8 @@ impl eframe::App for App {
             });
         egui::CentralPanel::default().show(ui, |ui| {
             if let Some(local) = self.local.as_mut() {
-                local.canvas(ui, dt as f32, self.paused);
+                let night = crate::sky::local_night(&self.world, local.tile.0);
+                local.canvas(ui, dt as f32, self.paused, night);
             } else {
                 self.world_canvas(ui, dt as f32);
             }

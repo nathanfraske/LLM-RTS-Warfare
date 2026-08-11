@@ -1,5 +1,5 @@
 [package]
-name = "economy"
+name = "climate"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,17 +8,10 @@ publish.workspace = true
 [dependencies]
 world-schema = { workspace = true }
 tuning = { workspace = true }
-policy = { workspace = true }
-sim-events = { workspace = true }
 world-map = { workspace = true }
-cohorts = { workspace = true }
-nations = { workspace = true }
-fauna = { workspace = true }
-climate = { workspace = true }
 
 [dev-dependencies]
-flora = { workspace = true }
-species = { workspace = true }
+sim-events = { workspace = true }
 
 [lints]
 workspace = true

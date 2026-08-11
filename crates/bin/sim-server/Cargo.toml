@@ -11,6 +11,7 @@ tuning = { workspace = true }
 directive-schema = { workspace = true }
 policy = { workspace = true }
 knowledge = { workspace = true }
+climate = { workspace = true }
 sim-clock = { workspace = true }
 sim-events = { workspace = true }
 world-map = { workspace = true }

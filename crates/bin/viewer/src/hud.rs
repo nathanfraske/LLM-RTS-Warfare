@@ -128,8 +128,10 @@ pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<TileId>) {
                 fields,
                 &world.fauna,
                 &world.flora_live,
+                &world.climate,
                 tile,
-                &world.tuning.subsistence
+                &world.tuning.subsistence,
+                &world.tuning.weather
             ),
             world.fauna.huntable(tile),
             world.fauna.fishable(fields, tile)

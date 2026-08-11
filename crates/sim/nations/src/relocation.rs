@@ -144,6 +144,7 @@ mod tests {
             elevation: vec![10; 9],
             water: vec![Water::Dry; 9],
             flow_acc: vec![1; 9],
+            drains_to: vec![u32::MAX; 9],
             temperature: vec![200; 9],
             moisture: vec![150; 9],
             cell_fertility: vec![120; 9],

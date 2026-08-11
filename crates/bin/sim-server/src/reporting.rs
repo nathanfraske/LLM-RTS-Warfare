@@ -18,6 +18,7 @@ impl World {
                 &self.genesis.fields,
                 &self.fauna,
                 &self.flora_live,
+                &self.climate,
                 &self.economy,
                 self.table,
                 &self.cohorts,
