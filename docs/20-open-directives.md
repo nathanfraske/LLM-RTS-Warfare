@@ -1,6 +1,6 @@
 # Open Directives — No Authored Verb List
 
-The current `Directive` enum (Name, SetStance, Settle, Commission, SetLabor) is a hand-authored list of what an overseer may do — which caps the action space at whatever we anticipated. Same disease the [invention grammar](03a-grammar-spec.md) cures for technology and [tuning](01a-foundation.md) cures for numbers; this document commits the cure for *governance*. Design agreed 2026-08-11; implementation is its own work item.
+The current `Directive` enum (Name, SetStance, Settle, Commission, SetLabor) is a hand-authored list of what an overseer may do — which caps the action space at whatever we anticipated. Same disease the [invention grammar](03a-grammar-spec.md) cures for technology and [tuning](01a-foundation.md) cures for numbers; this document commits the cure for *governance*. Design agreed and go-ahead given 2026-08-11; implementation is the next work block (traits-not-taxa and visible hunts shipped first).
 
 ## The shape: a self-describing lever registry
 

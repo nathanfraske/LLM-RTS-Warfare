@@ -48,6 +48,9 @@ pub struct Ecology {
     pub genesis_fill: f64,
     /// Monthly regrowth: gap-to-baseline divided by this (min 1 point).
     pub regrow_divisor: u8,
+    /// How many genomes each kingdom generates per world.
+    pub fauna_species: u16,
+    pub flora_species: u16,
 }
 
 impl Default for Ecology {
@@ -68,6 +71,8 @@ impl Default for Ecology {
             refuge_frac: 0.25,
             genesis_fill: 0.5,
             regrow_divisor: 10,
+            fauna_species: 12,
+            flora_species: 24,
         }
     }
 }

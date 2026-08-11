@@ -1,8 +1,11 @@
-//! The monthly trophic tick: logistic growth against living carrying
-//! capacities, predation, grazing pressure on the flora, and diffusion
-//! toward better habitat. Fixed-point, deterministic, order-fixed.
+//! The monthly trophic tick, trait-driven: every genome grows against the
+//! food its diet actually reaches — plants by its plant share, prey by its
+//! flesh share — predation pressure distributes over plant-leaning bodies on
+//! the matching side of the waterline, grazing wears the vegetation, and
+//! overcrowded stocks diffuse toward better habitat. Fixed-point,
+//! deterministic, order-fixed.
 
-use crate::{Fauna, Trophic, carrying};
+use crate::{Fauna, carrying};
 use tuning::Ecology;
 use world_map::WorldFields;
 use world_schema::Quantity;
@@ -10,80 +13,94 @@ use world_schema::Quantity;
 /// One month of wild dynamics. Mutates populations and the living flora.
 pub fn tick_month(fauna: &mut Fauna, fields: &WorldFields, flora_live: &mut [u8], eco: &Ecology) {
     let cells = fauna.cells();
-    grow(fauna, fields, flora_live, cells, eco);
+    grow_and_predate(fauna, fields, flora_live, cells, eco);
     graze(fauna, flora_live, fields, cells, eco);
     diffuse(fauna, fields, flora_live, cells, eco);
 }
 
-/// Logistic growth; predators grow against prey and eat them.
-fn grow(fauna: &mut Fauna, fields: &WorldFields, flora_live: &[u8], cells: usize, eco: &Ecology) {
-    for si in 0..fauna.species.len() {
-        let s = fauna.species[si].clone();
-        let r = Quantity::from_num(s.repro_milli) / Quantity::from_num(1000);
-        for (t, &fl) in flora_live.iter().enumerate().take(cells) {
+/// Plant-leaning biomass per side of the waterline — what flesh-eaters reach.
+fn prey_pools(fauna: &Fauna, tile: usize) -> (Quantity, Quantity) {
+    let mut land = Quantity::ZERO;
+    let mut water = Quantity::ZERO;
+    for s in &fauna.species {
+        let p = fauna.at(s.id as usize, tile) * s.plant_frac();
+        land += p * s.land_frac();
+        water += p * s.water_frac();
+    }
+    (land, water)
+}
+
+fn grow_and_predate(
+    fauna: &mut Fauna,
+    fields: &WorldFields,
+    flora_live: &[u8],
+    cells: usize,
+    eco: &Ecology,
+) {
+    for (t, &fl) in flora_live.iter().enumerate().take(cells) {
+        let (prey_land, prey_water) = prey_pools(fauna, t);
+        let mut demand_land = Quantity::ZERO;
+        let mut demand_water = Quantity::ZERO;
+
+        for si in 0..fauna.species.len() {
+            let s = fauna.species[si].clone();
             let p = fauna.at(si, t);
             if p <= Quantity::ZERO {
                 continue;
             }
-            let k = match s.trophic {
-                Trophic::Predator => {
-                    let prey = prey_biomass(fauna, t);
-                    (prey * Quantity::from_num(eco.predator_k_prey_frac))
-                        .min(carrying(&s, fields, fl, t, eco))
-                }
-                _ => carrying(&s, fields, fl, t, eco),
-            };
+            let r = Quantity::from_num(s.repro_milli) / Quantity::from_num(1000);
+            let habitat = carrying(&s, fields, fl, t, eco);
+            // Flesh share of the diet feeds on prey pools, not the land itself.
+            let own_prey = p * s.plant_frac();
+            let reachable_prey = (prey_land * s.land_frac() + prey_water * s.water_frac()
+                - own_prey)
+                .max(Quantity::ZERO);
+            let k = habitat * s.plant_frac()
+                + (reachable_prey * Quantity::from_num(eco.predator_k_prey_frac)).min(habitat)
+                    * s.flesh_frac();
             let next = if k <= Quantity::from_num(1) {
-                // Habitat gone: die back hard.
                 p * Quantity::from_num(eco.collapse_keep)
             } else {
                 let crowd = (Quantity::ONE - p / k).max(Quantity::from_num(-1));
                 (p + p * r * crowd).max(Quantity::ZERO)
             };
             fauna.set(si, t, next);
-            if s.trophic == Trophic::Predator {
-                eat_prey(
-                    fauna,
-                    t,
-                    next * Quantity::from_num(eco.predator_demand_frac),
-                    eco,
-                );
+            let demand = next * s.flesh_frac() * Quantity::from_num(eco.predator_demand_frac);
+            demand_land += demand * s.land_frac();
+            demand_water += demand * s.water_frac();
+        }
+
+        // Predation lands proportionally on plant-leaning stocks per side.
+        let eaten_land = demand_land.min(prey_land * Quantity::from_num(eco.predation_max_frac));
+        let eaten_water = demand_water.min(prey_water * Quantity::from_num(eco.predation_max_frac));
+        if eaten_land > Quantity::ZERO || eaten_water > Quantity::ZERO {
+            for si in 0..fauna.species.len() {
+                let s = fauna.species[si].clone();
+                let p = fauna.at(si, t);
+                if p <= Quantity::ZERO {
+                    continue;
+                }
+                let contrib = p * s.plant_frac();
+                let mut loss = Quantity::ZERO;
+                if prey_land > Quantity::ZERO {
+                    loss += eaten_land * (contrib * s.land_frac() / prey_land);
+                }
+                if prey_water > Quantity::ZERO {
+                    loss += eaten_water * (contrib * s.water_frac() / prey_water);
+                }
+                fauna.set(si, t, p - loss);
             }
         }
     }
 }
 
-fn prey_biomass(fauna: &Fauna, tile: usize) -> Quantity {
-    fauna
-        .species
-        .iter()
-        .filter(|x| x.trophic == Trophic::Grazer)
-        .fold(Quantity::ZERO, |acc, x| acc + fauna.at(x.id as usize, tile))
-}
-
-/// Predation debits grazers proportionally, sparing a refuge fraction.
-fn eat_prey(fauna: &mut Fauna, tile: usize, demand: Quantity, eco: &Ecology) {
-    let total = prey_biomass(fauna, tile);
-    if total <= Quantity::ZERO {
-        return;
-    }
-    let eaten = demand.min(total * Quantity::from_num(eco.predation_max_frac));
-    for si in 0..fauna.species.len() {
-        if fauna.species[si].trophic != Trophic::Grazer {
-            continue;
-        }
-        let p = fauna.at(si, tile);
-        fauna.set(si, tile, p - eaten * (p / total));
-    }
-}
-
-/// Heavy grazer load wears the vegetation down toward a floor.
+/// Heavy plant-eating land biomass wears the vegetation toward a floor.
 fn graze(fauna: &Fauna, flora_live: &mut [u8], fields: &WorldFields, cells: usize, eco: &Ecology) {
     for (t, fl) in flora_live.iter_mut().enumerate().take(cells) {
         if fields.elevation[t] < 0 {
             continue;
         }
-        let load = prey_biomass(fauna, t);
+        let (load, _) = prey_pools(fauna, t);
         let k_full = Quantity::from_num(eco.grazer_k_full) * Quantity::from_num(*fl)
             / Quantity::from_num(255);
         if k_full <= Quantity::ZERO {
@@ -163,33 +180,33 @@ mod tests {
     }
 
     #[test]
-    fn predators_starve_without_prey() {
+    fn flesh_eaters_starve_when_plant_eaters_vanish() {
         let (fields, mut flora, mut fauna) = world();
-        // Exterminate all grazers everywhere.
+        // Exterminate every plant-leaning genome everywhere.
         for si in 0..fauna.species.len() {
-            if fauna.species[si].trophic == Trophic::Grazer {
+            if fauna.species[si].diet_milli < 450 {
                 for t in 0..fauna.cells() {
                     fauna.set(si, t, Quantity::ZERO);
                 }
             }
         }
-        let before: Quantity = predator_total(&fauna);
+        let before = flesh_total(&fauna);
         let eco = Ecology::default();
         for _ in 0..18 {
             tick_month(&mut fauna, &fields, &mut flora, &eco);
         }
-        let after = predator_total(&fauna);
+        let after = flesh_total(&fauna);
         assert!(
-            after < before / Quantity::from_num(4),
-            "predators must crash without prey: {before:.0} -> {after:.0}"
+            after < before / Quantity::from_num(3),
+            "flesh-eaters must crash without prey: {before:.0} -> {after:.0}"
         );
     }
 
-    fn predator_total(fauna: &Fauna) -> Quantity {
+    fn flesh_total(fauna: &Fauna) -> Quantity {
         fauna
             .species
             .iter()
-            .filter(|s| s.trophic == Trophic::Predator)
+            .filter(|s| s.diet_milli > 650)
             .fold(Quantity::ZERO, |acc, s| {
                 (0..fauna.cells()).fold(acc, |a, t| a + fauna.at(s.id as usize, t))
             })

@@ -54,9 +54,9 @@ pub struct Genesis {
 /// Dawn-of-time world creation (docs/13-worldgen.md): physical fields at
 /// world-tile resolution, then flora settling. Tiles are the provinces.
 #[must_use]
-pub fn genesis(seed: WorldSeed, map_size: u32) -> Genesis {
+pub fn genesis(seed: WorldSeed, map_size: u32, flora_species: u16) -> Genesis {
     let fields = WorldFields::generate(seed, map_size);
-    let flora = flora::settle::settle(seed, &fields, flora::DEFAULT_SPECIES);
+    let flora = flora::settle::settle(seed, &fields, flora_species);
     Genesis { fields, flora }
 }
 

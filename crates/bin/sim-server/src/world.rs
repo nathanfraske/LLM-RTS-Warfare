@@ -42,7 +42,7 @@ impl World {
     #[must_use]
     pub fn new(config: &RunConfig) -> Self {
         let seed = WorldSeed(config.seed);
-        let genesis = genesis(seed, config.map_size);
+        let genesis = genesis(seed, config.map_size, config.tuning.ecology.flora_species);
         let table = species::archetypes();
         let mut log = EventLog::new();
         let tuning = config.tuning.clone();

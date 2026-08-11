@@ -14,19 +14,14 @@ const FLORAGEN: SystemId = SystemId(5);
 
 pub const DEFAULT_SPECIES: u16 = 24;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum GrowthForm {
-    Grass,
-    Shrub,
-    Tree,
-}
-
 /// A plant genome: tolerance curves over the climate fields plus competition
-/// traits. Integer-quantized so it serializes and hashes cleanly.
+/// traits. No authored growth-form taxonomy: `woodiness` is a spectrum from
+/// grass (0) to old forest (1000); "shrub" is a region of it, not a type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FloraSpecies {
     pub id: FloraId,
-    pub form: GrowthForm,
+    /// 0 = grass … 1000 = towering forest.
+    pub woodiness_milli: u16,
     /// Temperature optimum / tolerance width, deci-°C.
     pub t_opt: i16,
     pub t_width: i16,
@@ -54,16 +49,15 @@ pub fn generate_species(seed: WorldSeed, count: u16) -> Vec<FloraSpecies> {
             let m_center = M_BINS[k as usize % M_BINS.len()];
             let t_opt = t_center + (d(1) % 90) as i16 - 45;
             let m_opt = (i32::from(m_center) + (d(2) % 70) as i32 - 35).clamp(10, 250) as u8;
-            let form = match d(3) % 3 {
-                0 => GrowthForm::Grass,
-                1 => GrowthForm::Shrub,
-                // Trees need real moisture; dry rolls fall back to shrub.
-                _ if m_opt >= 95 => GrowthForm::Tree,
-                _ => GrowthForm::Shrub,
+            // Woodiness needs water: dry-adapted genomes cap out as scrub.
+            let woodiness_milli = if m_opt >= 95 {
+                (d(3) % 1000) as u16
+            } else {
+                (d(3) % 450) as u16
             };
             FloraSpecies {
                 id: FloraId(k),
-                form,
+                woodiness_milli,
                 t_opt,
                 t_width: 70 + (d(4) % 90) as i16,
                 m_opt,

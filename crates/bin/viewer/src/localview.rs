@@ -6,6 +6,7 @@ use sim_server::World;
 use world_schema::TileId;
 
 use crate::camera::Camera;
+use crate::critters::WildSpec;
 use crate::layers;
 use crate::localfolk::LocalFolk;
 
@@ -41,9 +42,30 @@ impl LocalView {
         let labor = world.nations.owner[tile.0 as usize]
             .and_then(|o| world.nations.nations.iter().find(|n| n.id == o))
             .map_or(world.tuning.society.spawn_labor, |n| n.labor_milli);
+        // Instance visible wildlife from the tile's actual fauna: count from
+        // biomass, color from trait space (greener = plant diet, redder =
+        // flesh, bluer = water-going).
+        let wildlife: Vec<WildSpec> = world
+            .fauna
+            .species
+            .iter()
+            .filter_map(|s| {
+                let pop = world.fauna.at(s.id as usize, tile.0 as usize);
+                let land = pop * s.land_frac();
+                let count = (land.to_num::<i64>() / 22).clamp(0, 10) as usize;
+                (count > 0).then(|| WildSpec {
+                    count,
+                    color: (
+                        (90 + u32::from(s.diet_milli) * 140 / 1000) as u8,
+                        (80 + (1000 - u32::from(s.diet_milli)) * 120 / 1000) as u8,
+                        (70 + u32::from(s.water_milli) * 150 / 1000) as u8,
+                    ),
+                })
+            })
+            .collect();
         Self {
             tile,
-            folk: LocalFolk::new(&map, labor, people, nation),
+            folk: LocalFolk::new(&map, labor, people, nation, &wildlife),
             cam: Camera::fit(map.size, Vec2::new(1200.0, 800.0)),
             map,
             texture,
@@ -63,7 +85,14 @@ impl LocalView {
         );
         let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
         painter.image(self.texture.id(), map_rect, uv, egui::Color32::WHITE);
-        self.folk.update(&self.map, dt);
+        let felled = self.folk.update(&self.map, dt);
+        if !felled.is_empty() {
+            for c in felled {
+                self.map.tree[c] = false;
+            }
+            self.texture
+                .set(layers::local_image(&self.map), TextureOptions::NEAREST);
+        }
         self.folk.draw(&painter, &self.cam, rect);
     }
 }

@@ -4,6 +4,7 @@
 
 mod app;
 mod camera;
+mod critters;
 mod feed;
 mod folk;
 mod hud;

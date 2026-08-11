@@ -5,7 +5,7 @@
 //! edges because detail noise is keyed by global cell coordinates.
 
 use directive_schema::WorkKind;
-use flora::{FloraMap, GrowthForm, NO_FLORA};
+use flora::{FloraMap, NO_FLORA};
 use sim_events::rng;
 use sim_events::{SystemId, WorldSeed};
 use world_map::noise::{self, Channel};
@@ -74,11 +74,7 @@ pub fn generate(
     let density = density_live[t];
     let tree_chance: u64 = match flora.occupant[t] {
         o if o == NO_FLORA => 0,
-        o => match flora.species[o as usize].form {
-            GrowthForm::Tree => 150,
-            GrowthForm::Shrub => 55,
-            GrowthForm::Grass => 12,
-        },
+        o => 8 + u64::from(flora.species[o as usize].woodiness_milli) * 150 / 1000,
     };
     let mut veg = Vec::with_capacity(n);
     let mut tree = Vec::with_capacity(n);

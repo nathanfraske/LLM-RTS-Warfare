@@ -17,14 +17,11 @@ const ORIGIN_PROBES: u64 = 160;
 const MIN_FITNESS: f32 = 0.06;
 const DEFENDER_BONUS: f32 = 1.15;
 
-/// Per-round claim chance in percent — trees creep, grass races. The jitter
-/// also breaks up square Chebyshev wavefronts into organic frontiers.
-fn spread_chance(form: crate::GrowthForm) -> u64 {
-    match form {
-        crate::GrowthForm::Grass => 80,
-        crate::GrowthForm::Shrub => 64,
-        crate::GrowthForm::Tree => 48,
-    }
+/// Per-round claim chance in percent — woody genomes creep, grassy ones
+/// race. The jitter also breaks square Chebyshev wavefronts into organic
+/// frontiers.
+fn spread_chance(woodiness_milli: u16) -> u64 {
+    80 - u64::from(woodiness_milli) * 32 / 1000
 }
 
 /// The settled vegetation layers.
@@ -87,7 +84,7 @@ pub fn settle(seed: WorldSeed, fields: &WorldFields, species_count: u16) -> Flor
     let rounds = (fields.size / 5).max(48);
     for round in 0..rounds {
         for (si, s) in species.iter().enumerate() {
-            let chance = spread_chance(s.form);
+            let chance = spread_chance(s.woodiness_milli);
             let mut next = Vec::new();
             for &cell in &frontiers[si] {
                 let mut blocked_by_roll = false;
