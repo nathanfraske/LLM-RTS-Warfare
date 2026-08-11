@@ -5,14 +5,14 @@
 use crate::WorldNations;
 use directive_schema::{Directive, DirectiveEntry};
 use sim_events::{Event, EventLog};
-use world_map::Province;
-use world_schema::{NationId, ProvinceId, Tick};
+use world_map::{WorldFields, tiles};
+use world_schema::{NationId, Tick, TileId};
 
 /// Validate and apply one logged directive at its scheduled tick.
 pub fn apply(
     entry: &DirectiveEntry,
     world: &mut WorldNations,
-    provinces: &[Province],
+    fields: &WorldFields,
     log: &mut EventLog,
 ) {
     let tick = Tick(entry.tick);
@@ -52,24 +52,25 @@ pub fn apply(
                 stance: *stance,
             });
         }
-        Directive::Settle { province } => {
-            let Some(target) = provinces.get(*province as usize) else {
-                reject(log, "no such province");
-                return;
-            };
-            if world.owner[*province as usize].is_some() {
-                reject(log, "province is already claimed");
+        Directive::Settle { tile } => {
+            let t = *tile as usize;
+            if t >= fields.grid().cells() || !tiles::is_land(fields, t) {
+                reject(log, "no such land tile");
                 return;
             }
-            if !world.borders_territory(nation_id, target) {
-                reject(log, "province does not border your territory");
+            if world.owner[t].is_some() {
+                reject(log, "tile is already claimed");
                 return;
             }
-            world.nations[ni].decreed_target = Some(ProvinceId(*province));
+            if !world.borders_territory(nation_id, fields, t) {
+                reject(log, "tile does not border your territory");
+                return;
+            }
+            world.nations[ni].decreed_target = Some(TileId(*tile));
             log.push(Event::SettlementDecreed {
                 tick,
                 nation: nation_id,
-                province: ProvinceId(*province),
+                tile: TileId(*tile),
             });
         }
     }

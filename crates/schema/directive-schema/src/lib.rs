@@ -21,8 +21,8 @@ pub enum Directive {
     Name { name: String },
     /// Set the expansion posture.
     SetStance { stance: Stance },
-    /// Decree settlement of a specific frontier province (must border territory).
-    Settle { province: u32 },
+    /// Decree settlement of a specific frontier tile (must border territory).
+    Settle { tile: u32 },
 }
 
 /// One logged council decision: apply `directive` to `nation` at `tick`.

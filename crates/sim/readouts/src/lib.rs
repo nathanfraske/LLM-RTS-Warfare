@@ -11,8 +11,10 @@ use cohorts::{CohortKey, Cohorts};
 use nations::WorldNations;
 use sim_events::EventLog;
 use species::Species;
-use world_map::Province;
+use world_map::{WorldFields, tiles};
 use world_schema::{NationId, Quantity, Tick};
+
+const FRONTIER_ROWS: usize = 24;
 
 #[must_use]
 pub fn year_month(tick: Tick) -> (u64, u64) {
@@ -20,12 +22,12 @@ pub fn year_month(tick: Tick) -> (u64, u64) {
 }
 
 /// The per-nation council report (markdown). Fog rules: own territory in
-/// full; the frontier one province deep; other nations only after contact.
+/// full; the frontier one tile deep; other nations only after contact.
 #[must_use]
 pub fn nation_report(
     nation_id: NationId,
     world: &WorldNations,
-    provinces: &[Province],
+    fields: &WorldFields,
     table: &[Species],
     all_cohorts: &Cohorts,
     log: &EventLog,
@@ -47,12 +49,12 @@ pub fn nation_report(
     );
     let _ = writeln!(
         out,
-        "\nPeople: {} · Stance: {:?} · Seat: province {}",
+        "\nPeople: {} · Stance: {:?} · Seat: tile {}",
         s.name, nation.stance, nation.seat.0
     );
-    territory_section(&mut out, nation_id, world, provinces, s, all_cohorts);
-    frontier_section(&mut out, nation_id, world, provinces, s);
-    known_peoples_section(&mut out, nation_id, world, provinces, table);
+    territory_section(&mut out, nation_id, world, fields, s, all_cohorts);
+    frontier_section(&mut out, nation_id, world, fields, s);
+    known_peoples_section(&mut out, nation_id, world, fields, table);
 
     let _ = writeln!(out, "\n## Chronicle (our recent history)\n");
     for line in chronicle(nation_id, world, log, 20) {
@@ -65,7 +67,7 @@ pub fn nation_report(
          (applied at their tick; current tick is {}). Examples:\n\n```json\n\
          {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Name\", \"name\": \"...\" }} }}\n\
          {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"SetStance\", \"stance\": \"Expansive\" }} }}\n\
-         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Settle\", \"province\": <frontier id> }} }}\n```",
+         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Settle\", \"tile\": <frontier id> }} }}\n```",
         now.0, now.0, nation_id.0, now.0, nation_id.0, now.0, nation_id.0
     );
     out
@@ -75,7 +77,7 @@ pub fn nation_report(
 #[must_use]
 pub fn world_report(
     world: &WorldNations,
-    provinces: &[Province],
+    fields: &WorldFields,
     table: &[Species],
     all_cohorts: &Cohorts,
     now: Tick,
@@ -83,15 +85,15 @@ pub fn world_report(
     let (year, month) = year_month(now);
     let mut out = String::new();
     let _ = writeln!(out, "# World Report — Year {year}, Month {month}\n");
-    let _ = writeln!(out, "| Nation | People | Stance | Provinces | Population |");
+    let _ = writeln!(out, "| Nation | People | Stance | Tiles | Population |");
     let _ = writeln!(out, "|---|---|---|---|---|");
     for nation in &world.nations {
-        let provinces_held = world.owned_provinces(nation.id).count();
+        let tiles_held = world.owned_tiles(nation.id).count();
         let pop: Quantity = world
-            .owned_provinces(nation.id)
-            .map(|p| {
+            .owned_tiles(nation.id)
+            .map(|t| {
                 all_cohorts.population_of(CohortKey {
-                    province: p,
+                    tile: t,
                     species: nation.species,
                 })
             })
@@ -99,14 +101,16 @@ pub fn world_report(
         let _ = writeln!(
             out,
             "| {} | {} | {:?} | {} | {:.0} |",
-            nation.name, table[nation.species.0 as usize].name, nation.stance, provinces_held, pop
+            nation.name, table[nation.species.0 as usize].name, nation.stance, tiles_held, pop
         );
     }
     let claimed = world.owner.iter().filter(|o| o.is_some()).count();
     let _ = writeln!(
         out,
-        "\nProvinces claimed: {claimed} / {} · Contacts made: {}",
-        provinces.len(),
+        "\nTiles claimed: {claimed} / {} land · Contacts made: {}",
+        (0..fields.grid().cells())
+            .filter(|&t| tiles::is_land(fields, t))
+            .count(),
         world.met.len()
     );
     out
@@ -116,7 +120,7 @@ fn territory_section(
     out: &mut String,
     nation_id: NationId,
     world: &WorldNations,
-    provinces: &[Province],
+    fields: &WorldFields,
     s: &Species,
     all_cohorts: &Cohorts,
 ) {
@@ -128,18 +132,17 @@ fn territory_section(
     let _ = writeln!(out, "\n## Territory\n");
     let _ = writeln!(
         out,
-        "| Province | Terrain | Population | Capacity | Pressure | Water |"
+        "| Tile | Terrain | Population | Capacity | Pressure | Water |"
     );
     let _ = writeln!(out, "|---|---|---|---|---|---|");
     let mut total = Quantity::ZERO;
-    for p in world.owned_provinces(nation_id) {
-        let province = &provinces[p.0 as usize];
+    for t in world.owned_tiles(nation_id) {
         let pop = all_cohorts.population_of(CohortKey {
-            province: p,
+            tile: t,
             species: nation.species,
         });
         total += pop;
-        let cap = nations::capacity(province, s);
+        let cap = nations::capacity(fields, t.0 as usize, s);
         let pressure = if cap > Quantity::ZERO {
             (pop * Quantity::from_num(100) / cap).to_num::<i64>()
         } else {
@@ -148,9 +151,9 @@ fn territory_section(
         let _ = writeln!(
             out,
             "| {} | {:?} | {pop:.0} | {cap:.0} | {pressure}% | {} |",
-            p.0,
-            province.terrain,
-            water_note(province),
+            t.0,
+            tiles::label(fields, t.0 as usize),
+            water_note(fields, t.0 as usize),
         );
     }
     let _ = writeln!(out, "\nTotal population: {total:.0}");
@@ -160,31 +163,42 @@ fn frontier_section(
     out: &mut String,
     nation_id: NationId,
     world: &WorldNations,
-    provinces: &[Province],
+    fields: &WorldFields,
     s: &Species,
 ) {
     let _ = writeln!(out, "\n## Frontier (settleable borders)\n");
     let _ = writeln!(
         out,
-        "| Province | Terrain | Est. capacity | Climate fit | Water |"
+        "| Tile | Terrain | Est. capacity | Climate fit | Water |"
     );
     let _ = writeln!(out, "|---|---|---|---|---|");
     let mut frontier: Vec<u32> = world
-        .owned_provinces(nation_id)
-        .flat_map(|p| provinces[p.0 as usize].neighbors.iter().map(|n| n.0))
-        .filter(|&n| world.owner[n as usize].is_none())
+        .owned_tiles(nation_id)
+        .flat_map(|t| tiles::land_neighbors(fields, t.0 as usize))
+        .map(|t| t.0)
+        .filter(|&t| world.owner[t as usize].is_none())
         .collect();
     frontier.sort_unstable();
     frontier.dedup();
-    for n in frontier {
-        let province = &provinces[n as usize];
-        let fit = species::province_fitness(s, province);
+    // Agents get the best candidates, not an unbounded wall of rows.
+    frontier
+        .sort_by_key(|&t| std::cmp::Reverse(nations::capacity(fields, t as usize, s).to_bits()));
+    let shown = frontier.len().min(FRONTIER_ROWS);
+    for &t in &frontier[..shown] {
+        let fit = nations::fitness(fields, t as usize, s);
         let _ = writeln!(
             out,
-            "| {n} | {:?} | {:.0} | {fit:.2} | {} |",
-            province.terrain,
-            nations::capacity(province, s),
-            water_note(province),
+            "| {t} | {:?} | {:.0} | {fit:.2} | {} |",
+            tiles::label(fields, t as usize),
+            nations::capacity(fields, t as usize, s),
+            water_note(fields, t as usize),
+        );
+    }
+    if frontier.len() > shown {
+        let _ = writeln!(
+            out,
+            "\n({} further border tiles omitted)",
+            frontier.len() - shown
         );
     }
 }
@@ -193,7 +207,7 @@ fn known_peoples_section(
     out: &mut String,
     nation_id: NationId,
     world: &WorldNations,
-    provinces: &[Province],
+    fields: &WorldFields,
     table: &[Species],
 ) {
     let _ = writeln!(out, "\n## Known peoples\n");
@@ -202,18 +216,18 @@ fn known_peoples_section(
         let pair = (nation_id.0.min(other.id.0), nation_id.0.max(other.id.0));
         if other.id != nation_id && world.met.contains(&pair) {
             let borders: Vec<u32> = world
-                .owned_provinces(nation_id)
-                .filter(|p| {
-                    provinces[p.0 as usize]
-                        .neighbors
+                .owned_tiles(nation_id)
+                .filter(|t| {
+                    let (neighbors, n) = fields.grid().neighbors8(t.0 as usize);
+                    neighbors[..n]
                         .iter()
-                        .any(|nb| world.owner[nb.0 as usize] == Some(other.id))
+                        .any(|&nb| world.owner[nb] == Some(other.id))
                 })
-                .map(|p| p.0)
+                .map(|t| t.0)
                 .collect();
             let _ = writeln!(
                 out,
-                "- {} ({} people) — bordering our provinces {borders:?}",
+                "- {} ({} people) — bordering our tiles {borders:?}",
                 other.name, table[other.species.0 as usize].name,
             );
             any = true;
@@ -224,8 +238,8 @@ fn known_peoples_section(
     }
 }
 
-fn water_note(province: &Province) -> &'static str {
-    match (province.coastal, province.riverine) {
+fn water_note(fields: &WorldFields, tile: usize) -> &'static str {
+    match (tiles::coastal(fields, tile), tiles::riverine(fields, tile)) {
         (true, true) => "coast+river",
         (true, false) => "coast",
         (false, true) => "river",

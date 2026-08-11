@@ -1,5 +1,7 @@
 # Bands and Councils — Sentient Nations v1 and the Overseer Loop
 
+> **Scale update:** "province" below now means a **world tile** ([15-multiscale-maps](15-multiscale-maps.md)): ownership, capacity, reports, and `Settle` directives all operate on tile ids, and the blob-province partition no longer exists.
+
 The first playable slice of the overseer architecture: sentient-species bands as nations, a band autopilot, typed directives, and fogged council reports — governable today by Claude (or any agent) through files, upgradeable to MCP at M2 without changing any semantics.
 
 ## Spawning

@@ -1,5 +1,5 @@
 //! Composes the headless deterministic simulation loop (docs/01-architecture.md):
-//! genesis (fields → flora → provinces → nations), then the tick loop with the
+//! genesis (fields → flora → nations on tiles), then the tick loop with the
 //! directive log as the only external input (docs/14-bands-and-councils.md).
 
 use std::path::PathBuf;
@@ -10,15 +10,15 @@ use flora::FloraMap;
 use nations::WorldNations;
 use sim_clock::{SimClock, is_month_boundary};
 use sim_events::{Event, EventLog, WorldSeed};
-use world_map::{Province, WorldFields, provinces};
+use world_map::{WorldFields, tiles};
 use world_schema::{Quantity, Tick};
 
 #[derive(Debug, Clone)]
 pub struct RunConfig {
     pub seed: u64,
     pub ticks: u64,
+    /// World size in world tiles per side (docs/15-multiscale-maps.md).
     pub map_size: u32,
-    pub provinces: u32,
     pub nations: u32,
     /// The overseer input stream, applied at each entry's tick.
     pub directives: Vec<DirectiveEntry>,
@@ -31,8 +31,7 @@ impl Default for RunConfig {
         Self {
             seed: 42,
             ticks: sim_clock::TICKS_PER_YEAR,
-            map_size: 512,
-            provinces: 96,
+            map_size: 192,
             nations: 4,
             directives: Vec::new(),
             report_dir: None,
@@ -45,24 +44,15 @@ impl Default for RunConfig {
 pub struct Genesis {
     pub fields: WorldFields,
     pub flora: FloraMap,
-    pub provinces: Vec<Province>,
-    pub province_of_cell: Vec<u32>,
 }
 
-/// Dawn-of-time world creation (docs/13-worldgen.md): physical fields, then
-/// flora settling, then the province partition that reads both.
+/// Dawn-of-time world creation (docs/13-worldgen.md): physical fields at
+/// world-tile resolution, then flora settling. Tiles are the provinces.
 #[must_use]
-pub fn genesis(seed: WorldSeed, map_size: u32, province_count: u32) -> Genesis {
+pub fn genesis(seed: WorldSeed, map_size: u32) -> Genesis {
     let fields = WorldFields::generate(seed, map_size);
     let flora = flora::settle::settle(seed, &fields, flora::DEFAULT_SPECIES);
-    let (province_list, province_of_cell) =
-        provinces::partition(seed, &fields, &flora.density, province_count);
-    Genesis {
-        fields,
-        flora,
-        provinces: province_list,
-        province_of_cell,
-    }
+    Genesis { fields, flora }
 }
 
 #[derive(Debug)]
@@ -95,16 +85,18 @@ impl World {
     #[must_use]
     pub fn new(config: &RunConfig) -> Self {
         let seed = WorldSeed(config.seed);
-        let genesis = genesis(seed, config.map_size, config.provinces);
+        let genesis = genesis(seed, config.map_size);
         let table = species::archetypes();
         let mut log = EventLog::new();
-        let nations = nations::spawn(&genesis.provinces, table, config.nations, &mut log);
+        let nations = nations::spawn(&genesis.fields, table, config.nations, &mut log);
         let all_cohorts = nations::found_cohorts(seed, &nations);
+        let cells = genesis.fields.grid().cells();
         log.push(Event::WorldGenerated {
-            land_cells: genesis.fields.land_cells(),
-            provinces: u32::try_from(genesis.provinces.len()).expect("province count fits u32"),
-            habitable_provinces: u32::try_from(
-                genesis.provinces.iter().filter(|p| p.habitable).count(),
+            land_tiles: genesis.fields.land_cells(),
+            habitable_tiles: u32::try_from(
+                (0..cells)
+                    .filter(|&t| tiles::habitable(&genesis.fields, t))
+                    .count(),
             )
             .expect("count fits u32"),
             flora_species: u16::try_from(genesis.flora.species.len())
@@ -143,14 +135,13 @@ impl World {
                 .cohorts
                 .entries()
                 .map(|(key, _)| {
-                    let province = &self.genesis.provinces[key.province.0 as usize];
                     let s = &self.table[key.species.0 as usize];
                     CohortDrive {
                         birth_rate: Quantity::from_num(BASE_BIRTH)
                             * species::milli(s.birth_mod_milli),
                         death_rate: Quantity::from_num(BASE_DEATH)
                             * species::milli(s.death_mod_milli),
-                        capacity: nations::capacity(province, s),
+                        capacity: nations::capacity(&self.genesis.fields, key.tile.0 as usize, s),
                     }
                 })
                 .collect();
@@ -158,7 +149,7 @@ impl World {
             for key in &delta.famines {
                 self.log.push(Event::Famine {
                     tick,
-                    province: key.province,
+                    tile: key.tile,
                     species: key.species,
                 });
             }
@@ -166,7 +157,7 @@ impl World {
                 self.seed,
                 tick,
                 &mut self.nations,
-                &self.genesis.provinces,
+                &self.genesis.fields,
                 self.table,
                 &mut self.cohorts,
                 &mut self.log,
@@ -185,7 +176,7 @@ impl World {
             nations::directives::apply(
                 &self.entries[self.next_entry],
                 &mut self.nations,
-                &self.genesis.provinces,
+                &self.genesis.fields,
                 &mut self.log,
             );
             self.next_entry += 1;
@@ -200,7 +191,7 @@ impl World {
             let report = readouts::nation_report(
                 nation.id,
                 &self.nations,
-                &self.genesis.provinces,
+                &self.genesis.fields,
                 self.table,
                 &self.cohorts,
                 &self.log,
@@ -211,7 +202,7 @@ impl World {
         }
         let world_summary = readouts::world_report(
             &self.nations,
-            &self.genesis.provinces,
+            &self.genesis.fields,
             self.table,
             &self.cohorts,
             now,

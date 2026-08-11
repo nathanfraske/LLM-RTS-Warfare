@@ -7,12 +7,11 @@ pub mod grid;
 pub mod heightfield;
 pub mod hydrology;
 pub mod noise;
-pub mod provinces;
 pub mod terrain;
+pub mod tiles;
 
 pub use grid::Grid;
 pub use hydrology::Water;
-pub use provinces::{NO_PROVINCE, Province};
 pub use terrain::Terrain;
 
 use sim_events::WorldSeed;
@@ -80,18 +79,5 @@ mod tests {
         assert_eq!(a.moisture, b.moisture);
         let c = WorldFields::generate(WorldSeed(8), 96);
         assert_ne!(a.elevation, c.elevation);
-    }
-
-    #[test]
-    fn provinces_cover_all_land_contiguously() {
-        let fields = WorldFields::generate(WorldSeed(7), 96);
-        let flora = vec![0u8; fields.grid().cells()];
-        let (provinces, of_cell) = provinces::partition(WorldSeed(7), &fields, &flora, 24);
-        assert_eq!(provinces.len(), 24);
-        for (i, &assigned) in of_cell.iter().enumerate() {
-            let is_land = fields.elevation[i] >= 0 && fields.water[i] != Water::Lake;
-            assert_eq!(assigned != NO_PROVINCE, is_land, "cell {i}");
-        }
-        assert!(provinces.iter().any(|p| p.habitable));
     }
 }

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct NationId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ProvinceId(pub u32);
+pub struct TileId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SpeciesId(pub u16);

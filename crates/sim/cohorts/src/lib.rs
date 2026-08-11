@@ -3,7 +3,7 @@
 
 use sim_events::rng;
 use sim_events::{SystemId, WorldSeed};
-use world_schema::{ProvinceId, Quantity, SpeciesId, Tick};
+use world_schema::{Quantity, SpeciesId, Tick, TileId};
 
 const DEMOGRAPHICS: SystemId = SystemId(2);
 
@@ -11,7 +11,7 @@ const DEMOGRAPHICS: SystemId = SystemId(2);
 /// (docs/02-simulation-core.md).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CohortKey {
-    pub province: ProvinceId,
+    pub tile: TileId,
     pub species: SpeciesId,
 }
 
@@ -19,12 +19,12 @@ impl CohortKey {
     /// Stable RNG salt: dynamics must not depend on insertion order.
     #[must_use]
     fn rng_key(self) -> u64 {
-        (u64::from(self.province.0) << 16) | u64::from(self.species.0)
+        (u64::from(self.tile.0) << 16) | u64::from(self.species.0)
     }
 }
 
 /// Per-cohort monthly parameters, composed by the caller from species
-/// modifiers and province carrying capacity (docs/14-bands-and-councils.md).
+/// modifiers and tile carrying capacity (docs/14-bands-and-councils.md).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CohortDrive {
     pub birth_rate: Quantity,
@@ -167,7 +167,7 @@ mod tests {
 
     fn key(p: u32) -> CohortKey {
         CohortKey {
-            province: ProvinceId(p),
+            tile: TileId(p),
             species: SpeciesId(0),
         }
     }

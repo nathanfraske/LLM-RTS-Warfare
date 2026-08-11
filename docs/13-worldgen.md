@@ -1,5 +1,7 @@
 # World Generation — Dawn of Time
 
+> **Scale update:** the world grid's cells are now **world tiles** — the strategic/province unit — and every tile opens into a person-scale local map ([15-multiscale-maps](15-multiscale-maps.md)). The field pipeline below is unchanged; it simply runs at tile resolution (default 192²), and `local-map` derives the detail underneath.
+
 The world starts primordial: land, water, climate, and wild flora — no civilization. Founder bands (tiny populations) appear at habitable sites and everything else emerges in sim time. All start parameters are tunable; "dawn of time" is the default framing, not a hard rule.
 
 ## Principles

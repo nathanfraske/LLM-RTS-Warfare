@@ -1,8 +1,8 @@
-﻿//! Layer colorings over the genesis output (docs/13-worldgen.md — "Seeing it").
+//! Layer colorings over the genesis output (docs/13-worldgen.md — "Seeing it").
 
 use flora::NO_FLORA;
 use sim_server::Genesis;
-use world_map::{NO_PROVINCE, Water};
+use world_map::Water;
 
 pub type Rgb = (u8, u8, u8);
 
@@ -12,7 +12,7 @@ fn lerp(a: Rgb, b: Rgb, t: f32) -> Rgb {
     (ch(a.0, b.0), ch(a.1, b.1), ch(a.2, b.2))
 }
 
-/// Deterministic distinct-ish color from an id (provinces, species, nations).
+/// Deterministic distinct-ish color from an id (species, nations).
 #[must_use]
 pub fn id_color(id: u32) -> Rgb {
     let h = (u64::from(id).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 40) as u32;
@@ -90,22 +90,4 @@ pub fn flora_layer(genesis: &Genesis, i: usize) -> Rgb {
     let base = id_color(u32::from(occupant));
     let density = f32::from(genesis.flora.density[i]) / 255.0;
     lerp((30, 30, 30), base, 0.35 + 0.65 * density)
-}
-
-#[must_use]
-pub fn provinces_layer(genesis: &Genesis, i: usize) -> Rgb {
-    if let Some(c) = water_color(genesis, i) {
-        return lerp(c, (0, 0, 0), 0.35);
-    }
-    let p = genesis.province_of_cell[i];
-    if p == NO_PROVINCE {
-        return (40, 40, 40);
-    }
-    let base = id_color(p);
-    let province = &genesis.provinces[p as usize];
-    if province.habitable {
-        base
-    } else {
-        lerp(base, (20, 20, 20), 0.55)
-    }
 }

@@ -1,15 +1,18 @@
 //! The viewer application: drives the sim clock, owns the textures and
-//! camera, and lays out map + feed + inspector.
+//! cameras, and lays out map + feed + inspector across the world and local
+//! view modes (docs/15-multiscale-maps.md).
 
+use cohorts::CohortKey;
 use eframe::egui::{self, Rect, TextureHandle, TextureOptions, Vec2};
 use sim_events::Event;
 use sim_server::{RunConfig, World};
-use world_map::NO_PROVINCE;
-use world_schema::ProvinceId;
+use world_map::tiles;
+use world_schema::TileId;
 
 use crate::camera::Camera;
 use crate::feed::{self, Line};
 use crate::folk::Folk;
+use crate::localview::LocalView;
 use crate::{hud, layers};
 
 const MAX_TICKS_PER_FRAME: u64 = 30_000;
@@ -18,6 +21,7 @@ const FEED_CAP: usize = 400;
 pub struct App {
     world: World,
     cam: Camera,
+    local: Option<LocalView>,
     paused: bool,
     ticks_per_sec: f64,
     tick_debt: f64,
@@ -27,7 +31,7 @@ pub struct App {
     seen_events: usize,
     feed: Vec<Line>,
     folk: Folk,
-    selected: Option<ProvinceId>,
+    selected: Option<TileId>,
 }
 
 impl App {
@@ -46,6 +50,7 @@ impl App {
         let mut app = Self {
             cam: Camera::fit(world.genesis.fields.size, Vec2::new(1200.0, 800.0)),
             world,
+            local: None,
             paused: false,
             ticks_per_sec: 720.0,
             tick_debt: 0.0,
@@ -89,14 +94,11 @@ impl App {
         self.seen_events = self.world.log.len();
         for event in fresh {
             match &event {
-                Event::ProvinceSettled {
-                    nation,
-                    from,
-                    province,
-                    ..
+                Event::TileSettled {
+                    nation, from, tile, ..
                 } => {
                     self.folk
-                        .spawn_caravan(&self.world, from.0, province.0, nation.0);
+                        .spawn_caravan(&self.world, from.0, tile.0, nation.0);
                     self.territory_dirty = true;
                 }
                 Event::NationSpawned { .. } => self.territory_dirty = true,
@@ -111,7 +113,47 @@ impl App {
         }
     }
 
-    fn map_canvas(&mut self, ui: &mut egui::Ui, dt: f32) {
+    /// Open the person-scale view of a tile.
+    fn descend(&mut self, ctx: &egui::Context, tile: TileId) {
+        let (people, nation_color) = self.local_population(tile);
+        self.local = Some(LocalView::open(
+            ctx,
+            &self.world,
+            tile,
+            people,
+            nation_color,
+        ));
+    }
+
+    /// How many wanderers to show on a tile's local map, and whose color.
+    fn local_population(&self, tile: TileId) -> (usize, u32) {
+        match self.world.nations.owner[tile.0 as usize] {
+            Some(owner) => {
+                let nation = self
+                    .world
+                    .nations
+                    .nations
+                    .iter()
+                    .find(|n| n.id == owner)
+                    .expect("owner exists");
+                let pop = self
+                    .world
+                    .cohorts
+                    .population_of(CohortKey {
+                        tile,
+                        species: nation.species,
+                    })
+                    .to_num::<i64>();
+                (
+                    usize::try_from((pop / 6).clamp(4, 40)).expect("clamped"),
+                    owner.0,
+                )
+            }
+            None => (0, 0),
+        }
+    }
+
+    fn world_canvas(&mut self, ui: &mut egui::Ui, dt: f32) {
         let (response, painter) =
             ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
         let rect = response.rect;
@@ -127,28 +169,36 @@ impl App {
         painter.image(self.territory.id(), map_rect, uv, egui::Color32::WHITE);
         self.folk.draw(&painter, &self.cam, rect);
 
+        let world_size = i64::from(self.world.genesis.fields.size);
+        let cam = &self.cam;
+        let clicked_tile = |pos: egui::Pos2| -> Option<TileId> {
+            let cell = cam.to_cell(rect, pos);
+            let (x, y) = (cell.x as i64, cell.y as i64);
+            (x >= 0 && y >= 0 && x < world_size && y < world_size)
+                .then(|| TileId((y * world_size + x) as u32))
+        };
         if response.clicked()
             && let Some(pointer) = response.interact_pointer_pos()
         {
-            let cell = self.cam.to_cell(rect, pointer);
-            let (x, y) = (cell.x as i64, cell.y as i64);
-            let size = i64::from(self.world.genesis.fields.size);
-            self.selected = (x >= 0 && y >= 0 && x < size && y < size)
-                .then(|| {
-                    let idx = (y as usize) * size as usize + x as usize;
-                    let p = self.world.genesis.province_of_cell[idx];
-                    (p != NO_PROVINCE).then_some(ProvinceId(p))
-                })
-                .flatten();
+            self.selected = clicked_tile(pointer)
+                .filter(|t| tiles::is_land(&self.world.genesis.fields, t.0 as usize));
         }
-        if let Some(p) = self.selected {
-            let centre = self.world.genesis.provinces[p.0 as usize].center;
+        if response.double_clicked()
+            && let Some(pointer) = response.interact_pointer_pos()
+            && let Some(t) = clicked_tile(pointer)
+            && tiles::is_land(&self.world.genesis.fields, t.0 as usize)
+        {
+            self.selected = Some(t);
+            self.descend(ui.ctx(), t);
+        }
+        if let Some(t) = self.selected {
+            let (x, y) = self.world.genesis.fields.grid().xy(t.0 as usize);
             let at = self
                 .cam
-                .to_screen(rect, Vec2::new(centre.0 as f32, centre.1 as f32));
+                .to_screen(rect, Vec2::new(x as f32 + 0.5, y as f32 + 0.5));
             painter.circle_stroke(
                 at,
-                (self.cam.zoom * 1.6).clamp(8.0, 28.0),
+                (self.cam.zoom * 0.8).clamp(6.0, 22.0),
                 egui::Stroke::new(2.0, egui::Color32::WHITE),
             );
         }
@@ -161,8 +211,13 @@ impl eframe::App for App {
         if ui.input(|i| i.key_pressed(egui::Key::Space)) {
             self.paused = !self.paused;
         }
+        if self.local.is_some()
+            && ui.input(|i| i.key_pressed(egui::Key::Escape) || i.key_pressed(egui::Key::Backspace))
+        {
+            self.local = None;
+        }
         self.advance(dt);
-        self.folk.update(&self.world, dt as f32);
+        self.folk.update(dt as f32);
         if self.territory_dirty {
             self.territory.set(
                 layers::territory_image(&self.world),
@@ -171,8 +226,15 @@ impl eframe::App for App {
             self.territory_dirty = false;
         }
 
+        let local_tile = self.local.as_ref().map(|l| l.tile);
         egui::Panel::top("bar").show(ui, |ui| {
-            hud::top_bar(ui, &self.world, &mut self.paused, &mut self.ticks_per_sec);
+            hud::top_bar(
+                ui,
+                &self.world,
+                &mut self.paused,
+                &mut self.ticks_per_sec,
+                local_tile,
+            );
         });
         egui::Panel::right("feed")
             .resizable(true)
@@ -193,7 +255,11 @@ impl eframe::App for App {
                 hud::inspector(ui, &self.world, self.selected);
             });
         egui::CentralPanel::default().show(ui, |ui| {
-            self.map_canvas(ui, dt as f32);
+            if let Some(local) = self.local.as_mut() {
+                local.canvas(ui, dt as f32);
+            } else {
+                self.world_canvas(ui, dt as f32);
+            }
         });
 
         ui.ctx().request_repaint();

@@ -20,7 +20,7 @@ pub fn chronicle(id: NationId, world: &WorldNations, log: &EventLog, limit: usiz
         .iter()
         .filter_map(|e| match e {
             Event::NationSpawned { nation, seat, .. } if *nation == id => {
-                Some(format!("Y1 M1 — our people settled province {}", seat.0))
+                Some(format!("Y1 M1 — our people settled tile {}", seat.0))
             }
             Event::NationNamed { tick, nation, name } if *nation == id => {
                 let (y, m) = year_month(*tick);
@@ -34,15 +34,11 @@ pub fn chronicle(id: NationId, world: &WorldNations, log: &EventLog, limit: usiz
                 let (y, m) = year_month(*tick);
                 Some(format!("Y{y} M{m} — the council set a {stance:?} posture"))
             }
-            Event::SettlementDecreed {
-                tick,
-                nation,
-                province,
-            } if *nation == id => {
+            Event::SettlementDecreed { tick, nation, tile } if *nation == id => {
                 let (y, m) = year_month(*tick);
                 Some(format!(
-                    "Y{y} M{m} — the council decreed settling province {}",
-                    province.0
+                    "Y{y} M{m} — the council decreed settling tile {}",
+                    tile.0
                 ))
             }
             Event::DirectiveRejected {
@@ -53,17 +49,17 @@ pub fn chronicle(id: NationId, world: &WorldNations, log: &EventLog, limit: usiz
                 let (y, m) = year_month(*tick);
                 Some(format!("Y{y} M{m} — a decree failed: {reason}"))
             }
-            Event::ProvinceSettled {
+            Event::TileSettled {
                 tick,
                 nation,
                 from,
-                province,
+                tile,
                 settlers,
             } if *nation == id => {
                 let (y, m) = year_month(*tick);
                 Some(format!(
-                    "Y{y} M{m} — {settlers:.0} settlers left province {} and founded province {}",
-                    from.0, province.0
+                    "Y{y} M{m} — {settlers:.0} settlers left tile {} and founded tile {}",
+                    from.0, tile.0
                 ))
             }
             Event::NationsMet { tick, a, b } if *a == id || *b == id => {
@@ -73,16 +69,16 @@ pub fn chronicle(id: NationId, world: &WorldNations, log: &EventLog, limit: usiz
             }
             Event::Famine {
                 tick,
-                province,
+                tile,
                 species,
-            } if world.owner[province.0 as usize] == Some(id)
+            } if world.owner[tile.0 as usize] == Some(id)
                 && world
                     .nations
                     .iter()
                     .any(|n| n.id == id && n.species == *species) =>
             {
                 let (y, m) = year_month(*tick);
-                Some(format!("Y{y} M{m} — hunger in province {}", province.0))
+                Some(format!("Y{y} M{m} — hunger in tile {}", tile.0))
             }
             _ => None,
         })

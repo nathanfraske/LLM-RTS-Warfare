@@ -5,7 +5,6 @@
 //! with world config (schema-first rule, docs/01-architecture.md §6).
 
 use serde::{Deserialize, Serialize};
-use world_map::Province;
 use world_schema::{Quantity, SpeciesId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -92,16 +91,16 @@ pub fn bump_q(value: i32, opt: i32, width: i32) -> Quantity {
     Quantity::from_num(num) / Quantity::from_num(w2)
 }
 
-/// How well `species` lives in `province`: climate fit in `[0, 1]`.
+/// How well `species` lives under a tile's climate: fit in `[0, 1]`.
 #[must_use]
-pub fn province_fitness(species: &Species, province: &Province) -> Quantity {
+pub fn tile_fitness(species: &Species, temperature_dc: i16, moisture: u8) -> Quantity {
     let t = bump_q(
-        i32::from(province.mean_temperature),
+        i32::from(temperature_dc),
         i32::from(species.t_opt),
         i32::from(species.t_width),
     );
     let m = bump_q(
-        i32::from(province.mean_moisture),
+        i32::from(moisture),
         i32::from(species.m_opt),
         i32::from(species.m_width),
     );

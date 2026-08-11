@@ -8,8 +8,7 @@ fn small() -> RunConfig {
     RunConfig {
         seed: 42,
         ticks: sim_clock::TICKS_PER_YEAR,
-        map_size: 128,
-        provinces: 24,
+        map_size: 96,
         nations: 4,
         ..RunConfig::default()
     }

@@ -30,6 +30,7 @@ sim-events = { path = "crates/sim/sim-events" }
 world-map = { path = "crates/sim/world-map" }
 cohorts = { path = "crates/sim/cohorts" }
 flora = { path = "crates/sim/flora" }
+local-map = { path = "crates/sim/local-map" }
 species = { path = "crates/sim/species" }
 nations = { path = "crates/sim/nations" }
 readouts = { path = "crates/sim/readouts" }

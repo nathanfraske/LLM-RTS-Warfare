@@ -7,8 +7,8 @@ use cohorts::{CohortKey, Cohorts};
 use directive_schema::Stance;
 use sim_events::{Event, EventLog, WorldSeed};
 use species::Species;
-use world_map::Province;
-use world_schema::{ProvinceId, Quantity, Tick};
+use world_map::{WorldFields, tiles};
+use world_schema::{Quantity, Tick, TileId};
 
 /// Stance interpretation: (split-population threshold multiplier, crowding trigger).
 fn stance_params(stance: Stance) -> (Quantity, Quantity) {
@@ -24,7 +24,7 @@ pub fn tick_month(
     _seed: WorldSeed,
     tick: Tick,
     world: &mut WorldNations,
-    provinces: &[Province],
+    fields: &WorldFields,
     table: &[Species],
     cohorts: &mut Cohorts,
     log: &mut EventLog,
@@ -37,52 +37,51 @@ pub fn tick_month(
         let split_threshold = Quantity::from_num(220) * threshold_mult * Quantity::from_num(1000)
             / Quantity::from_num(s.drive_milli);
 
-        let owned: Vec<ProvinceId> = world.owned_provinces(nation.id).collect();
+        let owned: Vec<TileId> = world.owned_tiles(nation.id).collect();
         let decreed = nation.decreed_target;
-        let mut settlement: Option<(ProvinceId, ProvinceId, Quantity, bool)> = None;
+        let mut settlement: Option<(TileId, TileId, Quantity, bool)> = None;
 
-        for &p in &owned {
-            let province = &provinces[p.0 as usize];
+        for &t in &owned {
             let key = CohortKey {
-                province: p,
+                tile: t,
                 species: nation.species,
             };
             let pop = cohorts.population_of(key);
             if pop < Quantity::from_num(120) {
                 continue;
             }
-            let cap = crate::capacity(province, s);
+            let cap = crate::capacity(fields, t.0 as usize, s);
             let crowd = if cap > Quantity::ZERO {
                 pop / cap
             } else {
                 Quantity::from_num(2)
             };
 
+            let neighbors = tiles::land_neighbors(fields, t.0 as usize);
             // A decree overrides the pressure triggers for its target.
             let decreed_here = decreed
-                .filter(|t| province.neighbors.contains(t))
-                .filter(|t| world.owner[t.0 as usize].is_none());
+                .filter(|target| neighbors.contains(target))
+                .filter(|target| world.owner[target.0 as usize].is_none());
             let pressured = pop > split_threshold || crowd > crowd_trigger;
 
-            let target = if let Some(t) = decreed_here {
-                Some((t, true))
+            let target = if let Some(target) = decreed_here {
+                Some((target, true))
             } else if pressured {
-                province
-                    .neighbors
+                neighbors
                     .iter()
-                    .filter(|t| world.owner[t.0 as usize].is_none())
-                    .map(|&t| (t, species::province_fitness(s, &provinces[t.0 as usize])))
+                    .filter(|target| world.owner[target.0 as usize].is_none())
+                    .map(|&target| (target, crate::fitness(fields, target.0 as usize, s)))
                     .filter(|(_, fit)| *fit > Quantity::from_num(0.1))
                     .max_by(|a, b| a.1.cmp(&b.1).then(b.0.0.cmp(&a.0.0)))
-                    .map(|(t, _)| (t, false))
+                    .map(|(target, _)| (target, false))
             } else {
                 None
             };
 
-            if let Some((t, was_decreed)) = target {
+            if let Some((target, was_decreed)) = target {
                 let settlers = pop * Quantity::from_num(0.4);
                 if settlers >= Quantity::from_num(60) {
-                    settlement = Some((p, t, settlers, was_decreed));
+                    settlement = Some((t, target, settlers, was_decreed));
                     break; // one settlement per nation per month
                 }
             }
@@ -93,14 +92,14 @@ pub fn tick_month(
             let species_id = world.nations[ni].species;
             let moved = cohorts.remove(
                 CohortKey {
-                    province: from,
+                    tile: from,
                     species: species_id,
                 },
                 settlers,
             );
             cohorts.add(
                 CohortKey {
-                    province: target,
+                    tile: target,
                     species: species_id,
                 },
                 moved,
@@ -109,16 +108,17 @@ pub fn tick_month(
             if was_decreed {
                 world.nations[ni].decreed_target = None;
             }
-            log.push(Event::ProvinceSettled {
+            log.push(Event::TileSettled {
                 tick,
                 nation: nation_id,
                 from,
-                province: target,
+                tile: target,
                 settlers: moved,
             });
             // First contact fires the moment territories touch (low id first).
-            for &nb in &provinces[target.0 as usize].neighbors {
-                if let Some(other) = world.owner[nb.0 as usize]
+            let (neighbors, n) = fields.grid().neighbors8(target.0 as usize);
+            for &nb in &neighbors[..n] {
+                if let Some(other) = world.owner[nb]
                     && other != nation_id
                 {
                     let (lo, hi) = if nation_id.0 <= other.0 {

@@ -43,7 +43,7 @@ replay seed="42" ticks="8640":
     cargo run -p sim-server --release -- --seed {{seed}} --ticks {{ticks}} --hash-only
 
 # render a world map to maps/terrain-<seed>.bmp: just map 42 512
-map seed="42" size="512":
+map seed="42" size="192":
     cargo run -p map-export --release -- --seed {{seed}} --size {{size}}
 
 # a council session: replay world + directives.json, write per-nation reports

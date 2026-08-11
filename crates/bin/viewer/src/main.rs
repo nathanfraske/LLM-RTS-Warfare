@@ -8,6 +8,8 @@ mod feed;
 mod folk;
 mod hud;
 mod layers;
+mod localfolk;
+mod localview;
 
 use eframe::egui;
 
@@ -25,10 +27,7 @@ fn main() -> eframe::Result<()> {
         match args[i].as_str() {
             "--seed" => config.seed = number(i).unwrap_or(config.seed),
             "--map-size" => {
-                config.map_size = number(i).and_then(|v| u32::try_from(v).ok()).unwrap_or(512);
-            }
-            "--provinces" => {
-                config.provinces = number(i).and_then(|v| u32::try_from(v).ok()).unwrap_or(96);
+                config.map_size = number(i).and_then(|v| u32::try_from(v).ok()).unwrap_or(192);
             }
             "--nations" => {
                 config.nations = number(i).and_then(|v| u32::try_from(v).ok()).unwrap_or(4);
@@ -36,7 +35,7 @@ fn main() -> eframe::Result<()> {
             "--directives" => directives_path = value(i).unwrap_or(directives_path),
             _ => {
                 eprintln!(
-                    "usage: viewer [--seed N] [--map-size N] [--provinces N] [--nations N] \
+                    "usage: viewer [--seed N] [--map-size N] [--nations N] \
                      [--directives file.json]"
                 );
                 std::process::exit(2);

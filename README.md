@@ -36,6 +36,7 @@ See [01a-foundation](docs/01a-foundation.md) for bootstrap from a bare machine.
 | [12-sovereignty](docs/12-sovereignty.md) | Embodied rule — the Seat, edicts, legitimacy, channels, puppets/exile/restoration |
 | [13-worldgen](docs/13-worldgen.md) | Dawn-of-time world generation — fields not biomes, hydrology, procedural flora |
 | [14-bands-and-councils](docs/14-bands-and-councils.md) | Sentient nations v1 — band autopilot, directives, fogged reports, the council loop |
+| [15-multiscale-maps](docs/15-multiscale-maps.md) | World tiles + local maps — provinces are tiles; every tile opens to a person-scale map |
 
 ## Stack (decided)
 

@@ -44,7 +44,7 @@ pub fn describe(event: &Event, world: &World) -> Option<Line> {
     };
     match event {
         Event::NationSpawned { nation, seat, .. } => Some(Line {
-            text: format!("Y1 M1 · {} settle province {}", name(*nation), seat.0),
+            text: format!("Y1 M1 · {} settle tile {}", name(*nation), seat.0),
             kind: Kind::Worldly,
         }),
         Event::NationNamed {
@@ -72,17 +72,13 @@ pub fn describe(event: &Event, world: &World) -> Option<Line> {
                 kind: Kind::Overseer,
             })
         }
-        Event::SettlementDecreed {
-            tick,
-            nation,
-            province,
-        } => {
+        Event::SettlementDecreed { tick, nation, tile } => {
             let (y, m) = year_month(*tick);
             Some(Line {
                 text: format!(
-                    "Y{y} M{m} · {} decrees the settling of province {}",
+                    "Y{y} M{m} · {} decrees the settling of tile {}",
                     name(*nation),
-                    province.0
+                    tile.0
                 ),
                 kind: Kind::Overseer,
             })
@@ -98,20 +94,20 @@ pub fn describe(event: &Event, world: &World) -> Option<Line> {
                 kind: Kind::Alarm,
             })
         }
-        Event::ProvinceSettled {
+        Event::TileSettled {
             tick,
             nation,
             from,
-            province,
+            tile,
             settlers,
         } => {
             let (y, m) = year_month(*tick);
             Some(Line {
                 text: format!(
-                    "Y{y} M{m} · {settlers:.0} settlers of {} leave province {} and found province {}",
+                    "Y{y} M{m} · {settlers:.0} settlers of {} leave tile {} and found tile {}",
                     name(*nation),
                     from.0,
-                    province.0
+                    tile.0
                 ),
                 kind: Kind::Worldly,
             })
@@ -123,10 +119,10 @@ pub fn describe(event: &Event, world: &World) -> Option<Line> {
                 kind: Kind::Contact,
             })
         }
-        Event::Famine { tick, province, .. } => {
+        Event::Famine { tick, tile, .. } => {
             let (y, m) = year_month(*tick);
             Some(Line {
-                text: format!("Y{y} M{m} · hunger in province {}", province.0),
+                text: format!("Y{y} M{m} · hunger in tile {}", tile.0),
                 kind: Kind::Alarm,
             })
         }

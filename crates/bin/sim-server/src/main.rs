@@ -1,5 +1,5 @@
 //! CLI entry:
-//! `sim-server --seed 42 --ticks 8640 [--map-size N] [--provinces N] [--nations N]
+//! `sim-server --seed 42 --ticks 8640 [--map-size N] [--nations N]
 //!             [--directives file.json] [--report-dir dir] [--hash-only]`
 
 use sim_server::{RunConfig, run_world};
@@ -24,10 +24,6 @@ fn main() {
             },
             "--map-size" => match number(i).and_then(|v| u32::try_from(v).ok()) {
                 Some(v) => config.map_size = v,
-                None => return usage(),
-            },
-            "--provinces" => match number(i).and_then(|v| u32::try_from(v).ok()) {
-                Some(v) => config.provinces = v,
                 None => return usage(),
             },
             "--nations" => match number(i).and_then(|v| u32::try_from(v).ok()) {
@@ -84,7 +80,7 @@ fn load_directives(path: &str) -> Vec<directive_schema::DirectiveEntry> {
 
 fn usage() {
     eprintln!(
-        "usage: sim-server [--seed N] [--ticks N] [--map-size N] [--provinces N] \
+        "usage: sim-server [--seed N] [--ticks N] [--map-size N] \
          [--nations N] [--directives file.json] [--report-dir dir] [--hash-only]"
     );
     std::process::exit(2);

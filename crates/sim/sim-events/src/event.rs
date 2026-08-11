@@ -1,14 +1,13 @@
 //! The authoritative world events. Every fact anyone can quote is one of these.
 
 use serde::{Deserialize, Serialize};
-use world_schema::{NationId, ProvinceId, Quantity, SpeciesId, Tick};
+use world_schema::{NationId, Quantity, SpeciesId, Tick, TileId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Event {
     WorldGenerated {
-        land_cells: u32,
-        provinces: u32,
-        habitable_provinces: u32,
+        land_tiles: u32,
+        habitable_tiles: u32,
         flora_species: u16,
         cohorts: u32,
         population: Quantity,
@@ -16,7 +15,7 @@ pub enum Event {
     NationSpawned {
         nation: NationId,
         species: SpeciesId,
-        seat: ProvinceId,
+        seat: TileId,
     },
     NationNamed {
         tick: Tick,
@@ -31,18 +30,18 @@ pub enum Event {
     SettlementDecreed {
         tick: Tick,
         nation: NationId,
-        province: ProvinceId,
+        tile: TileId,
     },
     DirectiveRejected {
         tick: Tick,
         nation: NationId,
         reason: String,
     },
-    ProvinceSettled {
+    TileSettled {
         tick: Tick,
         nation: NationId,
-        from: ProvinceId,
-        province: ProvinceId,
+        from: TileId,
+        tile: TileId,
         settlers: Quantity,
     },
     NationsMet {
@@ -52,7 +51,7 @@ pub enum Event {
     },
     Famine {
         tick: Tick,
-        province: ProvinceId,
+        tile: TileId,
         species: SpeciesId,
     },
     MonthClosed {

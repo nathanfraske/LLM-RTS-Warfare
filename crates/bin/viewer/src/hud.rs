@@ -1,10 +1,11 @@
-//! Top bar (date, population, timestep controls) and the province inspector.
+//! Top bar (date, population, timestep controls) and the tile inspector.
 
 use cohorts::CohortKey;
 use eframe::egui::{self, RichText};
 use readouts::year_month;
 use sim_server::World;
-use world_schema::ProvinceId;
+use world_map::tiles;
+use world_schema::TileId;
 
 /// Speed presets in ticks per real second.
 pub const SPEEDS: [(&str, f64); 4] = [
@@ -14,7 +15,13 @@ pub const SPEEDS: [(&str, f64); 4] = [
     ("1 year/s", 8_640.0),
 ];
 
-pub fn top_bar(ui: &mut egui::Ui, world: &World, paused: &mut bool, ticks_per_sec: &mut f64) {
+pub fn top_bar(
+    ui: &mut egui::Ui,
+    world: &World,
+    paused: &mut bool,
+    ticks_per_sec: &mut f64,
+    local_tile: Option<TileId>,
+) {
     ui.horizontal(|ui| {
         let tick = world.tick();
         let (year, month) = year_month(tick);
@@ -42,22 +49,38 @@ pub fn top_bar(ui: &mut egui::Ui, world: &World, paused: &mut bool, ticks_per_se
             }
         }
         ui.separator();
-        ui.label("space pauses · drag/WASD pans · wheel zooms · click inspects");
+        match local_tile {
+            Some(t) => {
+                ui.label(
+                    RichText::new(format!(
+                        "LOCAL · tile {} · Esc/Backspace returns to world",
+                        t.0
+                    ))
+                    .strong(),
+                );
+            }
+            None => {
+                ui.label("double-click a tile to walk it · drag/WASD pans · wheel zooms");
+            }
+        }
     });
 }
 
-pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<ProvinceId>) {
-    let Some(p) = selected else {
-        ui.weak("Click a province to inspect it.");
+pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<TileId>) {
+    let Some(t) = selected else {
+        ui.weak("Click a tile to inspect it; double-click to descend into it.");
         return;
     };
-    let province = &world.genesis.provinces[p.0 as usize];
-    ui.heading(format!("Province {}", p.0));
+    let fields = &world.genesis.fields;
+    let tile = t.0 as usize;
+    ui.heading(format!("Tile {}", t.0));
     ui.label(format!(
-        "{:?} · {} cells · fertility {:.2}",
-        province.terrain, province.cells, province.fertility
+        "{:?} · elevation {} m · fertility {}",
+        tiles::label(fields, tile),
+        fields.elevation[tile],
+        fields.cell_fertility[tile],
     ));
-    match world.nations.owner[p.0 as usize] {
+    match world.nations.owner[tile] {
         Some(owner) => {
             let nation = world
                 .nations
@@ -67,20 +90,30 @@ pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<ProvinceId>)
                 .expect("owner exists");
             let s = &world.table[nation.species.0 as usize];
             let pop = world.cohorts.population_of(CohortKey {
-                province: p,
+                tile: t,
                 species: nation.species,
             });
-            let cap = nations::capacity(province, s);
+            let cap = nations::capacity(fields, tile, s);
             ui.label(format!("Held by {} ({})", nation.name, s.name));
             ui.label(format!("Population {pop:.0} / capacity {cap:.0}"));
         }
         None => {
-            ui.label("Unclaimed wilds");
+            ui.label(if tiles::habitable(fields, tile) {
+                "Unclaimed, habitable"
+            } else {
+                "Unclaimed wilds"
+            });
         }
     }
     ui.label(format!(
-        "Climate: {:.1}°C · moisture {}",
-        f32::from(province.mean_temperature) / 10.0,
-        province.mean_moisture
+        "Climate: {:.1}°C · moisture {} · {}",
+        f32::from(fields.temperature[tile]) / 10.0,
+        fields.moisture[tile],
+        match (tiles::coastal(fields, tile), tiles::riverine(fields, tile)) {
+            (true, true) => "coast+river",
+            (true, false) => "coast",
+            (false, true) => "river",
+            (false, false) => "inland",
+        }
     ));
 }
