@@ -21,6 +21,10 @@ How the repo is built, developed, and kept tight — across Windows (primary dev
 3. `just setup` — installs the remaining dev tools (`cargo-deny`).
 4. `just check` — if this passes, your environment is correct. It is the same gate CI runs.
 
+## Tunables live in `tuning`
+
+Every sim-behavior number — ecology rates, channel efficiencies, mandate costs, demographic factors — lives in the `tuning` schema crate as typed, serde-ready structs with today's values as `Default`. Systems receive their domain struct by reference; **no sim crate declares a tunable constant locally.** `RunConfig.tuning` carries it, so loading a RON tuning file (or per-world variants) is one `serde` call away, and deepening a system never means hunting hardcoded numbers.
+
 ## The recipe surface
 
 ```text

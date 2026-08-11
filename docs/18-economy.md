@@ -19,6 +19,8 @@ Per-tile state: `stock[good]`, monthly `produced[good]` / `consumed[good]`, stor
 
 ## Phases
 
+**E0 — shipped, deeper than planned** ([19-ecology-and-subsistence](19-ecology-and-subsistence.md)): food comes from a living ecology through five subsistence channels rather than a yield formula; the notes below stand as the original sketch.
+
 **E0 — Stocks and yields.** Tiles produce food/wood/stone monthly from fields × labor share; cohorts eat; surplus stores (with spoilage); shortfall starves. **Famine stops being a crowding proxy and becomes an empty larder** — capacity as a formula retires, replaced by what the land actually feeds. Works get real outputs (farmstead = food yield, granary = storage cap). *Exit: a nation's population curve is explained entirely by its food ledger; the crowding-based capacity function is deleted.*
 
 **E1 — Labor and occupations.** The cohort key gains occupation ([02](02-simulation-core.md) always planned it). Institutions allocate labor monthly within policy weights; construction consumes labor + materials, so commissions ([16](16-mandate-and-works.md)) get real costs and build times derived from workforce. *Exit: reallocating labor via policy visibly shifts output; a work stalls without hands or timber.*

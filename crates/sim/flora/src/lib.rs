@@ -96,3 +96,15 @@ impl FloraSpecies {
         t * m * (f32::from(self.vigor_milli) / 1000.0)
     }
 }
+
+/// Monthly regrowth of living vegetation toward its settled baseline
+/// (docs/19-ecology-and-subsistence.md — flora density is dynamic now).
+pub fn regrow_month(live: &mut [u8], baseline: &[u8], divisor: u8) {
+    let divisor = divisor.max(1);
+    for (l, &b) in live.iter_mut().zip(baseline) {
+        if *l < b {
+            let gap = b - *l;
+            *l += (gap / divisor).max(1);
+        }
+    }
+}

@@ -3,6 +3,7 @@
 
 use sim_events::rng;
 use sim_events::{SystemId, WorldSeed};
+use tuning::Society;
 use world_schema::{Quantity, SpeciesId, Tick, TileId};
 
 const DEMOGRAPHICS: SystemId = SystemId(2);
@@ -29,10 +30,10 @@ impl CohortKey {
 pub struct CohortDrive {
     pub birth_rate: Quantity,
     pub death_rate: Quantity,
-    /// Carrying capacity; crowding beyond it turns growth into famine.
-    pub capacity: Quantity,
-    /// Crowding level past which famine strikes (granaries raise it).
-    pub famine_threshold: Quantity,
+    /// Food eaten over food needed last month (1 = fed). Drives everything:
+    /// births fall and deaths rise as the larder empties
+    /// (docs/19-ecology-and-subsistence.md — the capacity formula is gone).
+    pub nutrition: Quantity,
 }
 
 /// Aggregate demographic result of one closed month.
@@ -118,6 +119,7 @@ impl Cohorts {
         seed: WorldSeed,
         tick: Tick,
         drives: &[CohortDrive],
+        soc: &Society,
     ) -> MonthDelta {
         assert_eq!(
             drives.len(),
@@ -141,21 +143,20 @@ impl Cohorts {
                     + rng::unit(seed, tick, DEMOGRAPHICS, key.rng_key() ^ salt)
                         * Quantity::from_num(0.5)
             };
-            let crowd = if drive.capacity > Quantity::ZERO {
-                *pop / drive.capacity
-            } else {
-                Quantity::from_num(2)
-            };
-            let birth_factor = (Quantity::from_num(1.6) - crowd)
-                .clamp(Quantity::from_num(0.2), Quantity::from_num(1.2));
-            let death_factor = Quantity::ONE
-                + (crowd - Quantity::from_num(0.9)).max(Quantity::ZERO) * Quantity::from_num(2);
+            let birth_factor = drive.nutrition.clamp(
+                Quantity::from_num(soc.birth_factor_min),
+                Quantity::from_num(soc.birth_factor_max),
+            );
+            let death_factor = (Quantity::from_num(soc.death_offset) - drive.nutrition).clamp(
+                Quantity::from_num(soc.death_factor_min),
+                Quantity::from_num(soc.death_factor_max),
+            );
             let births = *pop * drive.birth_rate * birth_factor * jitter(0x5EED_0000_0000_0001);
             let deaths = *pop * drive.death_rate * death_factor * jitter(0x5EED_0000_0000_0002);
             *pop = (*pop + births - deaths).max(Quantity::ZERO);
             delta.births += births;
             delta.deaths += deaths;
-            if crowd > drive.famine_threshold {
+            if drive.nutrition < Quantity::from_num(soc.famine_nutrition) {
                 delta.famines.push(key);
             }
         }
@@ -174,13 +175,12 @@ mod tests {
         }
     }
 
-    fn drives(n: usize, capacity: i64) -> Vec<CohortDrive> {
+    fn drives(n: usize, nutrition: f64) -> Vec<CohortDrive> {
         vec![
             CohortDrive {
                 birth_rate: Quantity::from_num(0.006),
                 death_rate: Quantity::from_num(0.0045),
-                capacity: Quantity::from_num(capacity),
-                famine_threshold: Quantity::from_num(1.15),
+                nutrition: Quantity::from_num(nutrition),
             };
             n
         ]
@@ -196,7 +196,12 @@ mod tests {
         let initial = cohorts.total_population();
         let mut running = initial;
         for month in 1..=24u64 {
-            let delta = cohorts.tick_month(seed, Tick(month * 720), &drives(cohorts.len(), 5_000));
+            let delta = cohorts.tick_month(
+                seed,
+                Tick(month * 720),
+                &drives(cohorts.len(), 1.0),
+                &Society::default(),
+            );
             running = running + delta.births - delta.deaths;
             // A migration mid-history must not break the ledger.
             let moved = cohorts.remove(key(0), Quantity::from_num(15));
@@ -207,14 +212,14 @@ mod tests {
     }
 
     #[test]
-    fn crowding_turns_growth_into_famine() {
+    fn hunger_turns_growth_into_famine() {
         let seed = WorldSeed(7);
         let mut cohorts = Cohorts::new();
         cohorts.add(key(0), Quantity::from_num(1_000));
-        let tight = drives(1, 600); // pop far above capacity
-        let delta = cohorts.tick_month(seed, Tick(720), &tight);
+        let hungry = drives(1, 0.5); // half-fed
+        let delta = cohorts.tick_month(seed, Tick(720), &hungry, &Society::default());
         assert_eq!(delta.famines, vec![key(0)]);
-        assert!(delta.deaths > delta.births, "overshoot must cost lives");
+        assert!(delta.deaths > delta.births, "hunger must cost lives");
     }
 
     #[test]
@@ -228,8 +233,8 @@ mod tests {
         for p in (0..8).rev() {
             b.add(key(p), Quantity::from_num(300));
         }
-        a.tick_month(seed, Tick(720), &drives(8, 4_000));
-        b.tick_month(seed, Tick(720), &drives(8, 4_000));
+        a.tick_month(seed, Tick(720), &drives(8, 1.0), &Society::default());
+        b.tick_month(seed, Tick(720), &drives(8, 1.0), &Society::default());
         assert_eq!(a.population_of(key(3)), b.population_of(key(3)));
         assert_eq!(a.total_population(), b.total_population());
     }

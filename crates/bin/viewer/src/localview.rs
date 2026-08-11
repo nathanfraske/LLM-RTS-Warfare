@@ -35,11 +35,15 @@ impl LocalView {
             tile,
             populated,
             world.nations.works.completed(tile.0),
+            &world.flora_live,
         );
         let texture = ctx.load_texture("local", layers::local_image(&map), TextureOptions::NEAREST);
+        let labor = world.nations.owner[tile.0 as usize]
+            .and_then(|o| world.nations.nations.iter().find(|n| n.id == o))
+            .map_or(world.tuning.society.spawn_labor, |n| n.labor_milli);
         Self {
             tile,
-            folk: LocalFolk::new(&map, people, nation),
+            folk: LocalFolk::new(&map, labor, people, nation),
             cam: Camera::fit(map.size, Vec2::new(1200.0, 800.0)),
             map,
             texture,

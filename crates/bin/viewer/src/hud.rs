@@ -80,30 +80,51 @@ pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<TileId>) {
         fields.elevation[tile],
         fields.cell_fertility[tile],
     ));
-    match world.nations.owner[tile] {
-        Some(owner) => {
-            let nation = world
-                .nations
-                .nations
-                .iter()
-                .find(|n| n.id == owner)
-                .expect("owner exists");
-            let s = &world.table[nation.species.0 as usize];
-            let pop = world.cohorts.population_of(CohortKey {
-                tile: t,
-                species: nation.species,
-            });
-            let cap = nations::capacity(fields, tile, s, &world.nations.works);
-            ui.label(format!("Held by {} ({})", nation.name, s.name));
-            ui.label(format!("Population {pop:.0} / capacity {cap:.0}"));
+    if let Some(owner) = world.nations.owner[tile] {
+        let nation = world
+            .nations
+            .nations
+            .iter()
+            .find(|n| n.id == owner)
+            .expect("owner exists");
+        let s = &world.table[nation.species.0 as usize];
+        let pop = world.cohorts.population_of(CohortKey {
+            tile: t,
+            species: nation.species,
+        });
+        ui.label(format!("Held by {} ({})", nation.name, s.name));
+        if let Some(te) = world.economy.tile(t.0) {
+            ui.label(format!(
+                "Population {pop:.0} · fed {:.0}% · stores {:.0}",
+                te.last_nutrition * world_schema::Quantity::from_num(100),
+                te.stock
+            ));
+            ui.label(format!(
+                "Fields {:.0}% · herd {:.0}",
+                te.establishment * world_schema::Quantity::from_num(100),
+                te.herd
+            ));
+        } else {
+            ui.label(format!("Population {pop:.0}"));
         }
-        None => {
-            ui.label(if tiles::habitable(fields, tile) {
-                "Unclaimed, habitable"
-            } else {
-                "Unclaimed wilds"
-            });
-        }
+    } else {
+        ui.label(if tiles::habitable(fields, tile) {
+            "Unclaimed, habitable"
+        } else {
+            "Unclaimed wilds"
+        });
+        ui.label(format!(
+            "Food per worker (est.): {:.2} · wild game {:.0} · fishable {:.0}",
+            economy::potential(
+                fields,
+                &world.fauna,
+                &world.flora_live,
+                tile,
+                &world.tuning.subsistence
+            ),
+            world.fauna.huntable(tile),
+            world.fauna.fishable(fields, tile)
+        ));
     }
     ui.label(format!(
         "Climate: {:.1}°C · moisture {} · {}",

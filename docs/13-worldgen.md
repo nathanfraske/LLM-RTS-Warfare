@@ -30,7 +30,7 @@ No plant list. Each world generates its own flora as **genomes** — parameter b
 
 Diversity comes from **ecological settling**, not painting: each species gets origin sites where its fitness is high, then spreads outward round by round, claiming cells where its fitness beats the incumbent's (incumbents get a defender's bonus). The result is contiguous ranges, competition frontiers, endemism, and tree lines — evolutionary-*shaped* geography from pure competition.
 
-**Upgrade path (in order):**
+**Upgrade path (in order):** *(1 and the fauna layer of 3 shipped with [19-ecology-and-subsistence](19-ecology-and-subsistence.md): flora density is live — grazed, gathered, regrowing — and generated fauna genomes run trophic dynamics per tile.)*
 1. **Sim-time ecology** — monthly spread/dieback responding to climate shifts, fire, and civilization (logging, farming, grazing). Deforestation becomes real and visible.
 2. **True evolution** — mutation on spread, speciation events when ranges fragment. The genome struct is designed so this is additive.
 3. **Fauna** — mobile genomes over the same fields (grazers, predators, fish), feeding the food economy and hunting. Sapient species ([08](08-species.md)) remain a separate concept.

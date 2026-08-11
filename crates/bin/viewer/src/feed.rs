@@ -101,6 +101,23 @@ fn overseer_line(event: &Event, world: &World) -> Option<Line> {
             ),
             Kind::Overseer,
         ),
+        Event::LaborSet {
+            tick,
+            nation,
+            weights,
+        } => (
+            format!(
+                "{} · {} directs its labors: gather {} hunt {} fish {} cultivate {} herd {}",
+                stamp(*tick),
+                nation_name(world, *nation),
+                weights[0],
+                weights[1],
+                weights[2],
+                weights[3],
+                weights[4]
+            ),
+            Kind::Overseer,
+        ),
         Event::DirectiveRejected {
             tick,
             nation,
@@ -158,6 +175,21 @@ fn worldly_line(event: &Event, world: &World) -> Option<Line> {
                 tile.0
             ),
             Kind::Worldly,
+        ),
+        Event::BandMoved {
+            tick,
+            nation,
+            from,
+            to,
+        } => (
+            format!(
+                "{} · hunger drives the band of {} from tile {} to tile {}",
+                stamp(*tick),
+                nation_name(world, *nation),
+                from.0,
+                to.0
+            ),
+            Kind::Alarm,
         ),
         Event::NationsMet { tick, a, b } => (
             format!(

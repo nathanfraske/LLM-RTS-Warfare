@@ -5,14 +5,15 @@ use std::collections::BTreeMap;
 
 use directive_schema::WorkKind;
 use sim_events::{Event, EventLog};
+use tuning::Society;
 use world_schema::{NationId, Quantity, Tick, TileId};
 
 #[must_use]
-pub fn build_months(kind: WorkKind) -> u8 {
+pub fn build_months(kind: WorkKind, soc: &Society) -> u8 {
     match kind {
-        WorkKind::Farmstead => 6,
-        WorkKind::Granary => 8,
-        WorkKind::Dwellings => 5,
+        WorkKind::Farmstead => soc.farmstead_months,
+        WorkKind::Granary => soc.granary_months,
+        WorkKind::Dwellings => soc.dwellings_months,
     }
 }
 
@@ -39,10 +40,10 @@ impl Works {
                 .is_some_and(|v| v.iter().any(|w| w.kind == kind))
     }
 
-    pub fn commission(&mut self, tile: u32, kind: WorkKind) {
+    pub fn commission(&mut self, tile: u32, kind: WorkKind, soc: &Society) {
         self.building.entry(tile).or_default().push(WorkState {
             kind,
-            months_left: build_months(kind),
+            months_left: build_months(kind, soc),
         });
     }
 
@@ -56,11 +57,11 @@ impl Works {
         self.building.get(&tile).map_or(&[], Vec::as_slice)
     }
 
-    /// A farmstead grows the land's carrying capacity.
+    /// A farmstead multiplies cultivation yield (docs/19).
     #[must_use]
-    pub fn capacity_mult(&self, tile: u32) -> Quantity {
+    pub fn cultivation_mult(&self, tile: u32, soc: &Society) -> Quantity {
         if self.completed(tile).contains(&WorkKind::Farmstead) {
-            Quantity::from_num(1.35)
+            Quantity::from_num(soc.farmstead_cultivation_mult)
         } else {
             Quantity::ONE
         }
@@ -68,22 +69,18 @@ impl Works {
 
     /// Dwellings shelter families.
     #[must_use]
-    pub fn birth_mult(&self, tile: u32) -> Quantity {
+    pub fn birth_mult(&self, tile: u32, soc: &Society) -> Quantity {
         if self.completed(tile).contains(&WorkKind::Dwellings) {
-            Quantity::from_num(1.12)
+            Quantity::from_num(soc.dwellings_birth_mult)
         } else {
             Quantity::ONE
         }
     }
 
-    /// A granary holds hunger at bay longer.
+    /// A granary is a real container: it raises the food storage cap.
     #[must_use]
-    pub fn famine_threshold(&self, tile: u32) -> Quantity {
-        if self.completed(tile).contains(&WorkKind::Granary) {
-            Quantity::from_num(1.40)
-        } else {
-            Quantity::from_num(1.15)
-        }
+    pub fn has_granary(&self, tile: u32) -> bool {
+        self.completed(tile).contains(&WorkKind::Granary)
     }
 
     /// Advance construction one month; completions become world events.
@@ -119,23 +116,31 @@ mod tests {
 
     #[test]
     fn works_build_over_months_and_apply_their_effects() {
+        let soc = Society::default();
         let mut works = Works::default();
         let owner = vec![Some(NationId(0)); 4];
         let mut log = EventLog::new();
-        works.commission(2, WorkKind::Farmstead);
+        works.commission(2, WorkKind::Farmstead, &soc);
         assert!(works.has_or_building(2, WorkKind::Farmstead));
-        assert_eq!(works.capacity_mult(2), Quantity::ONE, "not built yet");
+        assert_eq!(
+            works.cultivation_mult(2, &soc),
+            Quantity::ONE,
+            "not built yet"
+        );
         for month in 1..=6u64 {
             works.tick_month(&owner, Tick(month * 720), &mut log);
         }
-        assert_eq!(works.capacity_mult(2), Quantity::from_num(1.35));
+        assert_eq!(
+            works.cultivation_mult(2, &soc),
+            Quantity::from_num(soc.farmstead_cultivation_mult)
+        );
         assert_eq!(works.in_progress(2).len(), 0);
         assert_eq!(log.len(), 1, "completion is a world event");
-        assert_eq!(works.famine_threshold(2), Quantity::from_num(1.15));
-        works.commission(2, WorkKind::Granary);
+        assert!(!works.has_granary(2));
+        works.commission(2, WorkKind::Granary, &soc);
         for month in 7..=14u64 {
             works.tick_month(&owner, Tick(month * 720), &mut log);
         }
-        assert_eq!(works.famine_threshold(2), Quantity::from_num(1.40));
+        assert!(works.has_granary(2));
     }
 }

@@ -22,6 +22,8 @@ Policies are mostly continuous parameters, so directives compose and interpolate
 
 ## Typed directives
 
+> **Direction of travel:** the closed directive enum is scheduled to become a self-describing policy & action registry — see [20-open-directives](20-open-directives.md).
+
 Agents steer exclusively through **typed directives** (`directive-schema`) — never freeform commands, never unit orders:
 
 - `SetPolicy { domain, parameters }`

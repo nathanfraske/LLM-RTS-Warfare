@@ -9,6 +9,7 @@ pub enum Event {
         land_tiles: u32,
         habitable_tiles: u32,
         flora_species: u16,
+        fauna_species: u16,
         cohorts: u32,
         population: Quantity,
     },
@@ -36,6 +37,18 @@ pub enum Event {
         tick: Tick,
         nation: NationId,
         reason: String,
+    },
+    LaborSet {
+        tick: Tick,
+        nation: NationId,
+        /// gather, hunt, fish, cultivate, herd — parts-per-thousand.
+        weights: [u16; 5],
+    },
+    BandMoved {
+        tick: Tick,
+        nation: NationId,
+        from: TileId,
+        to: TileId,
     },
     WorkCommissioned {
         tick: Tick,

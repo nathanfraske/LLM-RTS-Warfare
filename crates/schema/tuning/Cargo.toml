@@ -1,14 +1,12 @@
 [package]
-name = "cohorts"
+name = "tuning"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [dependencies]
-world-schema = { workspace = true }
-tuning = { workspace = true }
-sim-events = { workspace = true }
+serde = { workspace = true }
 
 [lints]
 workspace = true

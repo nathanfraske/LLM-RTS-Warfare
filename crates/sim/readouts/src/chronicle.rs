@@ -53,6 +53,19 @@ fn council_line(e: &Event, id: NationId) -> Option<String> {
             stamp(*tick),
             tile.0
         )),
+        Event::LaborSet {
+            tick,
+            nation,
+            weights,
+        } if *nation == id => Some(format!(
+            "{} — the council set the people's labors: gather {} · hunt {} · fish {} · cultivate {} · herd {} (per mille)",
+            stamp(*tick),
+            weights[0],
+            weights[1],
+            weights[2],
+            weights[3],
+            weights[4]
+        )),
         Event::DirectiveRejected {
             tick,
             nation,
@@ -96,6 +109,17 @@ fn world_line(e: &Event, id: NationId, world: &WorldNations) -> Option<String> {
             "{} — our {work:?} on tile {} stands complete",
             stamp(*tick),
             tile.0
+        )),
+        Event::BandMoved {
+            tick,
+            nation,
+            from,
+            to,
+        } if *nation == id => Some(format!(
+            "{} — hunger drove our band from tile {} to tile {}",
+            stamp(*tick),
+            from.0,
+            to.0
         )),
         Event::NationsMet { tick, a, b } if *a == id || *b == id => {
             let other = if *a == id { *b } else { *a };

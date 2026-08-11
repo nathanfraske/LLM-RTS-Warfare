@@ -1,13 +1,13 @@
 //! Mandate-priced commissions: works build over months, apply their effects,
 //! and directive spending is deterministic replay input
-//! (docs/16-mandate-and-works.md).
+//! (docs/16-mandate-and-works.md, docs/19-ecology-and-subsistence.md).
 
 use directive_schema::{Directive, DirectiveEntry, WorkKind};
 use sim_server::{RunConfig, World};
 use world_schema::Quantity;
 
 #[test]
-fn commissioned_works_complete_and_raise_capacity() {
+fn commissioned_works_complete_and_boost_cultivation() {
     let mut config = RunConfig {
         seed: 42,
         ticks: 0,
@@ -33,25 +33,27 @@ fn commissioned_works_complete_and_raise_capacity() {
     config.directives = vec![commission(720), commission(1440)];
 
     let mut world = World::new(&config);
-    let species = &world.table[world.nations.nations[0].species.0 as usize];
-    let before = nations::capacity(
-        &world.genesis.fields,
-        seat.0 as usize,
-        species,
-        &world.nations.works,
+    assert_eq!(
+        world
+            .nations
+            .works
+            .cultivation_mult(seat.0, &world.tuning.society),
+        Quantity::ONE,
+        "nothing built yet"
     );
 
     for _ in 0..(720 * 8) {
         world.step();
     }
 
-    let after = nations::capacity(
-        &world.genesis.fields,
-        seat.0 as usize,
-        species,
-        &world.nations.works,
+    assert_eq!(
+        world
+            .nations
+            .works
+            .cultivation_mult(seat.0, &world.tuning.society),
+        Quantity::from_num(world.tuning.society.farmstead_cultivation_mult),
+        "the farmstead multiplies cultivation"
     );
-    assert_eq!(after, before * Quantity::from_num(1.35), "farmstead feeds");
     assert!(
         world.nations.nations[0].autonomy > Quantity::ZERO,
         "direct rule leaves friction behind"

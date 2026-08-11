@@ -11,6 +11,7 @@ use directive_schema::Stance;
 use sim_events::rng;
 use sim_events::{Event, EventLog, SystemId, WorldSeed};
 use species::Species;
+use tuning::Society;
 use world_map::{WorldFields, tiles};
 use world_schema::{NationId, Quantity, SpeciesId, Tick, TileId};
 
@@ -29,6 +30,11 @@ pub struct Nation {
     pub mandate: Quantity,
     /// Friction from direct rule: raises costs, slows mandate regen.
     pub autonomy: Quantity,
+    /// Labor across subsistence channels (gather, hunt, fish, cultivate,
+    /// herd), parts-per-thousand (docs/19-ecology-and-subsistence.md).
+    pub labor_milli: [u16; 5],
+    /// False = the return-following autopilot manages `labor_milli`.
+    pub labor_directed: bool,
 }
 
 #[derive(Debug, Default)]
@@ -66,19 +72,6 @@ pub fn fitness(fields: &WorldFields, tile: usize, s: &Species) -> Quantity {
     species::tile_fitness(s, fields.temperature[tile], fields.moisture[tile])
 }
 
-/// Carrying capacity of one world tile for a species: climate fit × soil,
-/// grown by completed works. Integer-exact fixed-point (sim-path authoritative).
-#[must_use]
-pub fn capacity(fields: &WorldFields, tile: usize, s: &Species, works: &works::Works) -> Quantity {
-    let fit = fitness(fields, tile, s);
-    let soil = Quantity::from_num(fields.cell_fertility[tile]) / Quantity::from_num(255);
-    let base = Quantity::from_num(260)
-        + Quantity::from_num(1450)
-            * fit
-            * (Quantity::from_num(0.35) + soil * Quantity::from_num(0.65));
-    base * works.capacity_mult(tile as u32)
-}
-
 /// Spawn `count` nations at well-separated, species-fit habitable tiles.
 /// Purely score-driven — no randomness, so no seed parameter.
 #[must_use]
@@ -87,6 +80,7 @@ pub fn spawn(
     table: &[Species],
     count: u32,
     log: &mut EventLog,
+    soc: &Society,
 ) -> WorldNations {
     let cells = fields.grid().cells();
     let mut world = WorldNations {
@@ -98,7 +92,7 @@ pub fn spawn(
     let habitable: Vec<usize> = (0..cells)
         .filter(|&t| tiles::habitable(fields, t))
         .collect();
-    let starting_mandate = Quantity::from_num(mandate::STARTING_MANDATE);
+    let starting_mandate = Quantity::from_num(soc.starting_mandate);
     for i in 0..count {
         let s = &table[(i as usize) % table.len()];
         let mut best: Option<(i128, u32)> = None;
@@ -139,6 +133,8 @@ pub fn spawn(
             decreed_target: None,
             mandate: starting_mandate,
             autonomy: Quantity::ZERO,
+            labor_milli: soc.spawn_labor,
+            labor_directed: false,
         });
         log.push(Event::NationSpawned {
             nation: id,
@@ -151,12 +147,14 @@ pub fn spawn(
 
 /// Dawn-of-time founder cohorts: one small band at each nation's seat tile.
 #[must_use]
-pub fn found_cohorts(seed: WorldSeed, world: &WorldNations) -> cohorts::Cohorts {
+pub fn found_cohorts(seed: WorldSeed, world: &WorldNations, soc: &Society) -> cohorts::Cohorts {
     let mut founded = cohorts::Cohorts::new();
     for nation in &world.nations {
-        let head = 140
-            + i64::try_from(rng::draw(seed, Tick::ZERO, NATIONS, u64::from(nation.id.0)) % 160)
-                .expect("bounded by modulus");
+        let head = soc.founder_base
+            + i64::try_from(
+                rng::draw(seed, Tick::ZERO, NATIONS, u64::from(nation.id.0)) % soc.founder_spread,
+            )
+            .expect("bounded by modulus");
         founded.add(
             cohorts::CohortKey {
                 tile: nation.seat,

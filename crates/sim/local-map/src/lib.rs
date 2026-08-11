@@ -43,6 +43,7 @@ pub fn generate(
     tile: TileId,
     populated: bool,
     works: &[WorkKind],
+    density_live: &[u8],
 ) -> LocalMap {
     let world = fields.grid();
     let t = tile.0 as usize;
@@ -70,7 +71,7 @@ pub fn generate(
         _ => {}
     }
 
-    let density = flora.density[t];
+    let density = density_live[t];
     let tree_chance: u64 = match flora.occupant[t] {
         o if o == NO_FLORA => 0,
         o => match flora.species[o as usize].form {
@@ -244,8 +245,24 @@ mod tests {
         let tile = (0..fields.grid().cells())
             .find(|&t| world_map::tiles::habitable(&fields, t))
             .expect("habitable tile exists");
-        let a = generate(seed, &fields, &flora, TileId(tile as u32), true, &[]);
-        let b = generate(seed, &fields, &flora, TileId(tile as u32), true, &[]);
+        let a = generate(
+            seed,
+            &fields,
+            &flora,
+            TileId(tile as u32),
+            true,
+            &[],
+            &flora.density,
+        );
+        let b = generate(
+            seed,
+            &fields,
+            &flora,
+            TileId(tile as u32),
+            true,
+            &[],
+            &flora.density,
+        );
         assert_eq!(a.elevation, b.elevation);
         assert_eq!(a.water, b.water);
         assert_eq!(a.tree, b.tree);
@@ -260,7 +277,15 @@ mod tests {
         let fields = WorldFields::generate(seed, 96);
         let flora = flora::settle::settle(seed, &fields, 24);
         if let Some(tile) = (0..fields.grid().cells()).find(|&t| fields.water[t] == Water::River) {
-            let map = generate(seed, &fields, &flora, TileId(tile as u32), false, &[]);
+            let map = generate(
+                seed,
+                &fields,
+                &flora,
+                TileId(tile as u32),
+                false,
+                &[],
+                &flora.density,
+            );
             let river = map.water.iter().filter(|w| **w == Water::River).count();
             assert!(
                 river > 200,

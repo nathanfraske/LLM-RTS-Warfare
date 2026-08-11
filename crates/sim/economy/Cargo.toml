@@ -1,5 +1,5 @@
 [package]
-name = "viewer"
+name = "economy"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,20 +8,16 @@ publish.workspace = true
 [dependencies]
 world-schema = { workspace = true }
 tuning = { workspace = true }
+directive-schema = { workspace = true }
 sim-events = { workspace = true }
 world-map = { workspace = true }
 cohorts = { workspace = true }
-species = { workspace = true }
 nations = { workspace = true }
-readouts = { workspace = true }
-local-map = { workspace = true }
 fauna = { workspace = true }
-economy = { workspace = true }
-sim-server = { workspace = true }
-map-export = { path = "../map-export" }
-serde_json = { workspace = true }
-directive-schema = { workspace = true }
-eframe = "0.36.1"
+
+[dev-dependencies]
+flora = { workspace = true }
+species = { workspace = true }
 
 [lints]
 workspace = true

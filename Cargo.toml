@@ -31,6 +31,9 @@ world-map = { path = "crates/sim/world-map" }
 cohorts = { path = "crates/sim/cohorts" }
 flora = { path = "crates/sim/flora" }
 local-map = { path = "crates/sim/local-map" }
+fauna = { path = "crates/sim/fauna" }
+economy = { path = "crates/sim/economy" }
+tuning = { path = "crates/schema/tuning" }
 species = { path = "crates/sim/species" }
 nations = { path = "crates/sim/nations" }
 readouts = { path = "crates/sim/readouts" }

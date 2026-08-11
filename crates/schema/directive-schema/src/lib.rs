@@ -36,6 +36,17 @@ pub enum Directive {
     /// Commission a work on an owned tile; institutions build it over months.
     /// Costs mandate.
     Commission { tile: u32, work: WorkKind },
+    /// Direct the nation's labor across the five subsistence channels
+    /// (gather, hunt, fish, cultivate, herd), in parts-per-thousand.
+    /// Normalized server-side; overrides the return-following autopilot.
+    /// Costs mandate.
+    SetLabor {
+        gather: u16,
+        hunt: u16,
+        fish: u16,
+        cultivate: u16,
+        herd: u16,
+    },
 }
 
 /// One logged council decision: apply `directive` to `nation` at `tick`.

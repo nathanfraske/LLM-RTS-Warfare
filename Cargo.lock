@@ -666,6 +666,7 @@ name = "cohorts"
 version = "0.0.1"
 dependencies = [
  "sim-events",
+ "tuning",
  "world-schema",
 ]
 
@@ -857,6 +858,22 @@ checksum = "fc883f505d446814c0226bef4b64564b9adb9966fc00c88c57ce6d827dd152d6"
 dependencies = [
  "bytemuck",
  "emath",
+]
+
+[[package]]
+name = "economy"
+version = "0.0.1"
+dependencies = [
+ "cohorts",
+ "directive-schema",
+ "fauna",
+ "flora",
+ "nations",
+ "sim-events",
+ "species",
+ "tuning",
+ "world-map",
+ "world-schema",
 ]
 
 [[package]]
@@ -1111,6 +1128,19 @@ name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
+
+[[package]]
+name = "fauna"
+version = "0.0.1"
+dependencies = [
+ "flora",
+ "serde",
+ "sim-events",
+ "species",
+ "tuning",
+ "world-map",
+ "world-schema",
+]
 
 [[package]]
 name = "fax"
@@ -1958,6 +1988,7 @@ dependencies = [
  "directive-schema",
  "sim-events",
  "species",
+ "tuning",
  "world-map",
  "world-schema",
 ]
@@ -2715,9 +2746,12 @@ name = "readouts"
 version = "0.0.1"
 dependencies = [
  "cohorts",
+ "economy",
+ "fauna",
  "nations",
  "sim-events",
  "species",
+ "tuning",
  "world-map",
  "world-schema",
 ]
@@ -2957,6 +2991,8 @@ version = "0.0.1"
 dependencies = [
  "cohorts",
  "directive-schema",
+ "economy",
+ "fauna",
  "flora",
  "nations",
  "readouts",
@@ -2964,6 +3000,7 @@ dependencies = [
  "sim-clock",
  "sim-events",
  "species",
+ "tuning",
  "world-map",
  "world-schema",
 ]
@@ -3398,6 +3435,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
+name = "tuning"
+version = "0.0.1"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "type-map"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3515,7 +3559,9 @@ version = "0.0.1"
 dependencies = [
  "cohorts",
  "directive-schema",
+ "economy",
  "eframe",
+ "fauna",
  "local-map",
  "map-export",
  "nations",
@@ -3524,6 +3570,7 @@ dependencies = [
  "sim-events",
  "sim-server",
  "species",
+ "tuning",
  "world-map",
  "world-schema",
 ]

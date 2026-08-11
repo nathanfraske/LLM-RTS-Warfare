@@ -5,6 +5,7 @@
 use crate::{WorldNations, mandate};
 use directive_schema::{Directive, DirectiveEntry};
 use sim_events::{Event, EventLog};
+use tuning::Society;
 use world_map::{WorldFields, tiles};
 use world_schema::{NationId, Tick, TileId};
 
@@ -14,6 +15,7 @@ pub fn apply(
     world: &mut WorldNations,
     fields: &WorldFields,
     log: &mut EventLog,
+    soc: &Society,
 ) {
     let tick = Tick(entry.tick);
     let nation_id = NationId(entry.nation);
@@ -35,7 +37,7 @@ pub fn apply(
         reject(log, reason);
         return;
     }
-    let cost = mandate::effective_cost(&entry.directive, world.nations[ni].autonomy);
+    let cost = mandate::effective_cost(&entry.directive, world.nations[ni].autonomy, soc);
     if world.nations[ni].mandate < cost {
         reject(
             log,
@@ -49,7 +51,7 @@ pub fn apply(
     {
         let nation = &mut world.nations[ni];
         let (mut m, mut a) = (nation.mandate, nation.autonomy);
-        mandate::spend(&mut m, &mut a, cost);
+        mandate::spend(&mut m, &mut a, cost, soc);
         nation.mandate = m;
         nation.autonomy = a;
     }
@@ -81,12 +83,28 @@ pub fn apply(
             });
         }
         Directive::Commission { tile, work } => {
-            world.works.commission(*tile, *work);
+            world.works.commission(*tile, *work, soc);
             log.push(Event::WorkCommissioned {
                 tick,
                 nation: nation_id,
                 tile: TileId(*tile),
                 work: *work,
+            });
+        }
+        Directive::SetLabor {
+            gather,
+            hunt,
+            fish,
+            cultivate,
+            herd,
+        } => {
+            let weights = [*gather, *hunt, *fish, *cultivate, *herd];
+            world.nations[ni].labor_milli = weights;
+            world.nations[ni].labor_directed = true;
+            log.push(Event::LaborSet {
+                tick,
+                nation: nation_id,
+                weights,
             });
         }
     }
@@ -118,6 +136,22 @@ fn validate(
             }
             if !world.borders_territory(nation_id, fields, t) {
                 return Err("tile does not border your territory".into());
+            }
+        }
+        Directive::SetLabor {
+            gather,
+            hunt,
+            fish,
+            cultivate,
+            herd,
+        } => {
+            let sum = u32::from(*gather)
+                + u32::from(*hunt)
+                + u32::from(*fish)
+                + u32::from(*cultivate)
+                + u32::from(*herd);
+            if sum == 0 {
+                return Err("labor must go somewhere".into());
             }
         }
         Directive::Commission { tile, work } => {

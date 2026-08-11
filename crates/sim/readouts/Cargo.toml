@@ -7,11 +7,14 @@ publish.workspace = true
 
 [dependencies]
 world-schema = { workspace = true }
+tuning = { workspace = true }
 sim-events = { workspace = true }
 world-map = { workspace = true }
 cohorts = { workspace = true }
 species = { workspace = true }
 nations = { workspace = true }
+fauna = { workspace = true }
+economy = { workspace = true }
 
 [lints]
 workspace = true
