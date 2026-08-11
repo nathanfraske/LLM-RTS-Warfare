@@ -42,6 +42,7 @@ See [01a-foundation](docs/01a-foundation.md) for bootstrap from a bare machine.
 | [18-economy](docs/18-economy.md) | The economy program — conserved goods, needs, labor, chains, trade (phases E0–E4) |
 | [19-ecology-and-subsistence](docs/19-ecology-and-subsistence.md) | The living world — fauna food webs, five subsistence channels, emergent ways of life |
 | [20-open-directives](docs/20-open-directives.md) | No authored verb list — the self-describing policy & action registry |
+| [21-authored-floor](docs/21-authored-floor.md) | Where emergence stops — the floor rule, the three tests, the floors per domain |
 
 ## Stack (decided)
 

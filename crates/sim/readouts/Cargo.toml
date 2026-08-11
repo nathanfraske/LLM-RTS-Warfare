@@ -13,6 +13,7 @@ world-map = { workspace = true }
 cohorts = { workspace = true }
 species = { workspace = true }
 nations = { workspace = true }
+policy = { workspace = true }
 fauna = { workspace = true }
 economy = { workspace = true }
 

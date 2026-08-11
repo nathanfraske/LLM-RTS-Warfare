@@ -23,10 +23,12 @@ pub enum Event {
         nation: NationId,
         name: String,
     },
-    StanceChanged {
+    /// A council decree set a policy leaf (docs/20-open-directives.md).
+    PolicySet {
         tick: Tick,
         nation: NationId,
-        stance: directive_schema::Stance,
+        key: String,
+        value: policy::PolicyValue,
     },
     SettlementDecreed {
         tick: Tick,
@@ -38,12 +40,6 @@ pub enum Event {
         nation: NationId,
         reason: String,
     },
-    LaborSet {
-        tick: Tick,
-        nation: NationId,
-        /// gather, hunt, fish, cultivate, herd — parts-per-thousand.
-        weights: [u16; 5],
-    },
     BandMoved {
         tick: Tick,
         nation: NationId,
@@ -54,13 +50,14 @@ pub enum Event {
         tick: Tick,
         nation: NationId,
         tile: TileId,
-        work: directive_schema::WorkKind,
+        /// Registry key of the work, e.g. `farmstead`.
+        work: String,
     },
     WorkCompleted {
         tick: Tick,
         nation: NationId,
         tile: TileId,
-        work: directive_schema::WorkKind,
+        work: String,
     },
     TileSettled {
         tick: Tick,

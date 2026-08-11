@@ -2,6 +2,7 @@
 //! genesis (fields → flora → nations on tiles), then the tick loop with the
 //! directive log as the only external input (docs/14-bands-and-councils.md).
 
+pub mod registry;
 pub mod world;
 
 use std::path::PathBuf;

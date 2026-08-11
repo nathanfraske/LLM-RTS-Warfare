@@ -4,14 +4,14 @@ Overseers can reach below policy and do things *directly* — commission a farms
 
 ## Mandate
 
-Each nation holds **mandate** — the people's readiness to be commanded (cap 10, regenerating ~1.2/month). Directives cost mandate:
+Each nation holds **mandate** — the people's readiness to be commanded (cap 10, regenerating ~1.2/month). Every registry entry ([20](20-open-directives.md)) carries its base price; today's surface:
 
-| Directive | Base cost |
+| Registry entry | Base cost |
 |---|---|
-| `Name` | free (a gift, not an order) |
-| `SetStance` | 1 |
-| `Settle { tile }` | 2 |
-| `Commission { tile, work }` | 3 |
+| `nation.name` | free (a gift, not an order) |
+| `expansion.posture`, `labor.*` (Set) | 1 |
+| `band.settle` | 2 |
+| `works.commission` | 3 |
 
 Insufficient mandate → the directive is **rejected in-world** ("the council lacks the mandate: need 3.4, have 1.9"), logged, and visible in the chronicle like any other rejection.
 
@@ -28,7 +28,7 @@ All of it is ordinary sim state mutated by logged directives and monthly ticks �
 
 ## Works v1 (the first direct projects)
 
-`Commission { tile, work }` starts a project on an owned tile; **institutions build it over months** (the overseer buys the decision, not the labor), completion is a world event, and finished works appear physically on the tile's local map ([15](15-multiscale-maps.md) — the first per-tile overlay content):
+`Enact("works.commission")` starts a project on an owned tile; **institutions build it over months** (the overseer buys the decision, not the labor), completion is a world event, and finished works appear physically on the tile's local map ([15](15-multiscale-maps.md) — the first per-tile overlay content):
 
 | Work | Build time | Effect | On the local map |
 |---|---|---|---|
@@ -43,7 +43,7 @@ One work of each kind per tile. When the M1 economy lands, works become real pro
 Mandate is agnostic about *which mind* spends it — that's operator configuration ([05a](05a-agent-integration-spec.md)):
 
 - **Overseer-direct** — the main agent does everything, strategy and projects, budgeting its own mandate.
-- **Steward-delegated** — a lightweight sub-agent (small local model) receives a mandate budget and standing priorities from the overseer and handles project-level work; the overseer stays at policy scale. Implemented today by whichever agent writes the `Commission` entries in the council log; at M2 this becomes a role-scoped token (the cabinet-of-agents carve-out in [05a §7](05a-agent-integration-spec.md)).
+- **Steward-delegated** — a lightweight sub-agent (small local model) receives a mandate budget and standing priorities from the overseer and handles project-level work; the overseer stays at policy scale. Implemented today by whichever agent writes the `works.commission` entries in the council log; at M2 this becomes a role-scoped token (the cabinet-of-agents carve-out in [05a §7](05a-agent-integration-spec.md)).
 - **Hands-off** — nobody spends; the autopilot alone governs, and mandate just accrues as unused potential.
 
 The interesting emergent tradeoff: a cheap steward can burn mandate on marginal projects and inflate autonomy, degrading the *overseer's* ability to intervene when it matters. Delegation is itself a strategic risk.

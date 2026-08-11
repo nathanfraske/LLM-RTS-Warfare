@@ -7,7 +7,6 @@ publish.workspace = true
 
 [dependencies]
 world-schema = { workspace = true }
-directive-schema = { workspace = true }
 sim-events = { workspace = true }
 world-map = { workspace = true }
 flora = { workspace = true }

@@ -1,19 +1,27 @@
-//! Applying overseer directives: server-side validation, mandate pricing,
-//! in-world outcomes, everything logged (docs/04-institutions-directives.md,
+//! Applying overseer directives: registry validation, mandate pricing,
+//! in-world outcomes, everything logged (docs/20-open-directives.md,
 //! docs/16-mandate-and-works.md — directives are exactly the replay input).
+//!
+//! `Set` writes a policy leaf and pins it; `Enact` dispatches to the owning
+//! system. The dispatch match below is the single wiring point: a new
+//! action registers its def (`registry`) and adds one delegating arm here.
 
-use crate::{WorldNations, mandate};
+use std::collections::BTreeMap;
+
+use crate::{WorldNations, mandate, registry};
 use directive_schema::{Directive, DirectiveEntry};
+use policy::{ActionDef, PolicyValue, Registry, TargetKind};
 use sim_events::{Event, EventLog};
 use tuning::Society;
 use world_map::{WorldFields, tiles};
-use world_schema::{NationId, Tick, TileId};
+use world_schema::{NationId, Quantity, Tick, TileId};
 
 /// Validate, price, and apply one logged directive at its scheduled tick.
 pub fn apply(
     entry: &DirectiveEntry,
     world: &mut WorldNations,
     fields: &WorldFields,
+    reg: &Registry,
     log: &mut EventLog,
     soc: &Society,
 ) {
@@ -32,12 +40,16 @@ pub fn apply(
         return;
     };
 
-    // Validate before charging — a rejected order costs nothing.
-    if let Err(reason) = validate(&entry.directive, ni, world, fields) {
-        reject(log, reason);
-        return;
-    }
-    let cost = mandate::effective_cost(&entry.directive, world.nations[ni].autonomy, soc);
+    // Validate against the registry and the world before charging — a
+    // rejected order costs nothing.
+    let base = match validate(&entry.directive, ni, world, fields, reg) {
+        Ok(base) => base,
+        Err(reason) => {
+            reject(log, reason);
+            return;
+        }
+    };
+    let cost = mandate::effective_cost(Quantity::from_num(base), world.nations[ni].autonomy, soc);
     if world.nations[ni].mandate < cost {
         reject(
             log,
@@ -57,115 +69,169 @@ pub fn apply(
     }
 
     match &entry.directive {
-        Directive::Name { name } => {
-            let trimmed = name.trim().to_string();
-            world.nations[ni].name.clone_from(&trimmed);
-            log.push(Event::NationNamed {
+        Directive::Set { key, value } => {
+            world.nations[ni].policy.set_directed(key, value.clone());
+            log.push(Event::PolicySet {
                 tick,
                 nation: nation_id,
-                name: trimmed,
+                key: key.clone(),
+                value: value.clone(),
             });
         }
-        Directive::SetStance { stance } => {
-            world.nations[ni].stance = *stance;
-            log.push(Event::StanceChanged {
-                tick,
-                nation: nation_id,
-                stance: *stance,
-            });
-        }
-        Directive::Settle { tile } => {
-            world.nations[ni].decreed_target = Some(TileId(*tile));
-            log.push(Event::SettlementDecreed {
-                tick,
-                nation: nation_id,
-                tile: TileId(*tile),
-            });
-        }
-        Directive::Commission { tile, work } => {
-            world.works.commission(*tile, *work, soc);
-            log.push(Event::WorkCommissioned {
-                tick,
-                nation: nation_id,
-                tile: TileId(*tile),
-                work: *work,
-            });
-        }
-        Directive::SetLabor {
-            gather,
-            hunt,
-            fish,
-            cultivate,
-            herd,
-        } => {
-            let weights = [*gather, *hunt, *fish, *cultivate, *herd];
-            world.nations[ni].labor_milli = weights;
-            world.nations[ni].labor_directed = true;
-            log.push(Event::LaborSet {
-                tick,
-                nation: nation_id,
-                weights,
-            });
-        }
+        Directive::Enact {
+            action,
+            target,
+            params,
+        } => enact(action, *target, params, ni, world, tick, log, soc),
     }
 }
 
-/// In-world legality, checked before any mandate is charged.
+/// Registry + in-world legality; returns the base mandate cost on success.
 fn validate(
     directive: &Directive,
     ni: usize,
     world: &WorldNations,
     fields: &WorldFields,
-) -> Result<(), String> {
-    let nation_id = world.nations[ni].id;
+    reg: &Registry,
+) -> Result<f64, String> {
     match directive {
-        Directive::Name { name } => {
-            let trimmed = name.trim();
-            if trimmed.is_empty() || trimmed.len() > 64 {
-                return Err("a name must be 1..=64 characters".into());
-            }
+        Directive::Set { key, value } => {
+            let def = reg.policy(key).ok_or(format!(
+                "no lever named \"{key}\" — the report's charter lists what can be set"
+            ))?;
+            def.kind.check(value)?;
+            Ok(def.cost)
         }
-        Directive::SetStance { .. } => {}
-        Directive::Settle { tile } => {
-            let t = *tile as usize;
-            if t >= fields.grid().cells() || !tiles::is_land(fields, t) {
-                return Err("no such land tile".into());
-            }
-            if world.owner[t].is_some() {
-                return Err("tile is already claimed".into());
-            }
-            if !world.borders_territory(nation_id, fields, t) {
-                return Err("tile does not border your territory".into());
-            }
-        }
-        Directive::SetLabor {
-            gather,
-            hunt,
-            fish,
-            cultivate,
-            herd,
+        Directive::Enact {
+            action,
+            target,
+            params,
         } => {
-            let sum = u32::from(*gather)
-                + u32::from(*hunt)
-                + u32::from(*fish)
-                + u32::from(*cultivate)
-                + u32::from(*herd);
-            if sum == 0 {
-                return Err("labor must go somewhere".into());
+            let def = reg.action(action).ok_or(format!(
+                "no action named \"{action}\" — the report's charter lists what can be enacted"
+            ))?;
+            check_params(def, params)?;
+            let tile = check_target(def.target, *target, ni, world, fields)?;
+            if action == registry::COMMISSION {
+                let work = params["work"].as_text().expect("checked as choice");
+                let t = tile.expect("owned-tile target checked");
+                if world.works.has_or_building(t, work) {
+                    return Err(format!("a {work} already stands or is being built there"));
+                }
             }
-        }
-        Directive::Commission { tile, work } => {
-            let t = *tile as usize;
-            if t >= fields.grid().cells() {
-                return Err("no such tile".into());
-            }
-            if world.owner[t] != Some(nation_id) {
-                return Err("you can only commission works on your own tiles".into());
-            }
-            if world.works.has_or_building(*tile, *work) {
-                return Err(format!("{work:?} already stands or is being built there"));
-            }
+            Ok(def.cost)
         }
     }
+}
+
+/// Every declared param present and in bounds; nothing undeclared.
+fn check_params(def: &ActionDef, params: &BTreeMap<String, PolicyValue>) -> Result<(), String> {
+    for p in &def.params {
+        let value = params
+            .get(&p.name)
+            .ok_or(format!("missing param \"{}\"", p.name))?;
+        p.kind
+            .check(value)
+            .map_err(|e| format!("param \"{}\": {e}", p.name))?;
+    }
+    if let Some(unknown) = params
+        .keys()
+        .find(|k| !def.params.iter().any(|p| &p.name == *k))
+    {
+        return Err(format!("unknown param \"{unknown}\""));
+    }
     Ok(())
+}
+
+/// The action's declared target kind, checked against the world.
+fn check_target(
+    kind: TargetKind,
+    target: Option<u32>,
+    ni: usize,
+    world: &WorldNations,
+    fields: &WorldFields,
+) -> Result<Option<u32>, String> {
+    let nation_id = world.nations[ni].id;
+    match kind {
+        TargetKind::Nation => {
+            if target.is_some() {
+                return Err("this action takes no target tile".into());
+            }
+            Ok(None)
+        }
+        TargetKind::OwnedTile => {
+            let t = target.ok_or("this action needs a target tile")?;
+            if (t as usize) >= fields.grid().cells() {
+                return Err("no such tile".into());
+            }
+            if world.owner[t as usize] != Some(nation_id) {
+                return Err("the target must be one of your own tiles".into());
+            }
+            Ok(Some(t))
+        }
+        TargetKind::FrontierTile => {
+            let t = target.ok_or("this action needs a target tile")?;
+            if (t as usize) >= fields.grid().cells() || !tiles::is_land(fields, t as usize) {
+                return Err("no such land tile".into());
+            }
+            if world.owner[t as usize].is_some() {
+                return Err("tile is already claimed".into());
+            }
+            if !world.borders_territory(nation_id, fields, t as usize) {
+                return Err("tile does not border your territory".into());
+            }
+            Ok(Some(t))
+        }
+    }
+}
+
+/// Dispatch a validated, paid action to its owning system.
+#[allow(clippy::too_many_arguments)]
+fn enact(
+    action: &str,
+    target: Option<u32>,
+    params: &BTreeMap<String, PolicyValue>,
+    ni: usize,
+    world: &mut WorldNations,
+    tick: Tick,
+    log: &mut EventLog,
+    soc: &Society,
+) {
+    let nation_id = world.nations[ni].id;
+    match action {
+        registry::NAME => {
+            let name = params["name"]
+                .as_text()
+                .expect("checked as text")
+                .trim()
+                .to_string();
+            world.nations[ni].name.clone_from(&name);
+            log.push(Event::NationNamed {
+                tick,
+                nation: nation_id,
+                name,
+            });
+        }
+        registry::SETTLE => {
+            let tile = TileId(target.expect("frontier target checked"));
+            world.nations[ni].decreed_target = Some(tile);
+            log.push(Event::SettlementDecreed {
+                tick,
+                nation: nation_id,
+                tile,
+            });
+        }
+        registry::COMMISSION => {
+            let tile = target.expect("owned-tile target checked");
+            let work = params["work"].as_text().expect("checked as choice");
+            world.works.commission(tile, work, soc);
+            log.push(Event::WorkCommissioned {
+                tick,
+                nation: nation_id,
+                tile: TileId(tile),
+                work: work.to_string(),
+            });
+        }
+        _ => unreachable!("every registered action has a dispatch arm"),
+    }
 }

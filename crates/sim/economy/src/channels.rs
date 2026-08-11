@@ -11,6 +11,22 @@ use world_schema::Quantity;
 
 pub const CHANNELS: usize = 5;
 pub const CHANNEL_NAMES: [&str; CHANNELS] = ["gather", "hunt", "fish", "cultivate", "herd"];
+/// Registered policy-leaf path per channel (docs/20-open-directives.md).
+pub const LABOR_KEYS: [&str; CHANNELS] = [
+    "labor.gather",
+    "labor.hunt",
+    "labor.fish",
+    "labor.cultivate",
+    "labor.herd",
+];
+/// Agent-facing lever lines: mechanisms and trade-offs, never eras (19 §4).
+pub const CHANNEL_SUMMARIES: [&str; CHANNELS] = [
+    "Share of labor taking the standing plants; wears the green down, which regrows.",
+    "Share of labor taking land game; rich while stocks last, they recover slowly.",
+    "Share of labor working the waters here and next door.",
+    "Share of labor clearing and tending fields; yield builds with establishment.",
+    "Share of labor keeping captive stock; herds start by capture from the wild.",
+];
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct ChannelYields {

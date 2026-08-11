@@ -4,7 +4,6 @@
 //! discarded freely, identical every visit. Adjacent tiles agree at their
 //! edges because detail noise is keyed by global cell coordinates.
 
-use directive_schema::WorkKind;
 use flora::{FloraMap, NO_FLORA};
 use sim_events::rng;
 use sim_events::{SystemId, WorldSeed};
@@ -30,8 +29,8 @@ pub struct LocalMap {
     pub tree: Vec<bool>,
     /// Camp center when the tile is settled.
     pub camp: Option<(u32, u32)>,
-    /// Completed works on this tile, for rendering.
-    pub works: Vec<WorkKind>,
+    /// Completed works on this tile, by registry key, for rendering.
+    pub works: Vec<String>,
 }
 
 /// Generate the local map for `tile`. `populated` places the camp.
@@ -42,7 +41,7 @@ pub fn generate(
     flora: &FloraMap,
     tile: TileId,
     populated: bool,
-    works: &[WorkKind],
+    works: &[String],
     density_live: &[u8],
 ) -> LocalMap {
     let world = fields.grid();
@@ -95,8 +94,9 @@ pub fn generate(
     }
 
     let camp = populated.then(|| place_camp(&water, &mut tree));
+    // Presentation matches works by their registry key (docs/20).
     if let Some((cx, cy)) = camp
-        && works.contains(&WorkKind::Farmstead)
+        && works.iter().any(|w| w == "farmstead")
     {
         clear_farm_plot(&mut tree, cx, cy);
     }

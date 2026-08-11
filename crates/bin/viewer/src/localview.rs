@@ -41,7 +41,9 @@ impl LocalView {
         let texture = ctx.load_texture("local", layers::local_image(&map), TextureOptions::NEAREST);
         let labor = world.nations.owner[tile.0 as usize]
             .and_then(|o| world.nations.nations.iter().find(|n| n.id == o))
-            .map_or(world.tuning.society.spawn_labor, |n| n.labor_milli);
+            .map_or(world.tuning.society.spawn_labor, |n| {
+                economy::labor_milli(&n.policy)
+            });
         // Instance visible wildlife from the tile's actual fauna: count from
         // biomass, color from trait space (greener = plant diet, redder =
         // flesh, bluer = water-going).

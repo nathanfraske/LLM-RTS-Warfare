@@ -5,9 +5,10 @@
 pub mod autopilot;
 pub mod directives;
 pub mod mandate;
+pub mod registry;
 pub mod works;
 
-use directive_schema::Stance;
+use policy::{PolicyTree, Registry};
 use sim_events::rng;
 use sim_events::{Event, EventLog, SystemId, WorldSeed};
 use species::Species;
@@ -23,18 +24,15 @@ pub struct Nation {
     pub name: String,
     pub species: SpeciesId,
     pub seat: TileId,
-    pub stance: Stance,
     /// Overseer-decreed settlement target, consumed when settled.
     pub decreed_target: Option<TileId>,
     /// The people's readiness to be commanded (docs/16-mandate-and-works.md).
     pub mandate: Quantity,
     /// Friction from direct rule: raises costs, slows mandate regen.
     pub autonomy: Quantity,
-    /// Labor across subsistence channels (gather, hunt, fish, cultivate,
-    /// herd), parts-per-thousand (docs/19-ecology-and-subsistence.md).
-    pub labor_milli: [u16; 5],
-    /// False = the return-following autopilot manages `labor_milli`.
-    pub labor_directed: bool,
+    /// Every registered behavior knob, live (docs/20-open-directives.md).
+    /// Bespoke policy fields stop accruing here — new levers are leaves.
+    pub policy: PolicyTree,
 }
 
 #[derive(Debug, Default)]
@@ -80,6 +78,7 @@ pub fn spawn(
     table: &[Species],
     count: u32,
     log: &mut EventLog,
+    registry: &Registry,
     soc: &Society,
 ) -> WorldNations {
     let cells = fields.grid().cells();
@@ -129,12 +128,10 @@ pub fn spawn(
             name: format!("{} Band {}", s.name, i + 1),
             species: s.id,
             seat: TileId(seat),
-            stance: Stance::Steady,
             decreed_target: None,
             mandate: starting_mandate,
             autonomy: Quantity::ZERO,
-            labor_milli: soc.spawn_labor,
-            labor_directed: false,
+            policy: PolicyTree::from_defaults(registry),
         });
         log.push(Event::NationSpawned {
             nation: id,

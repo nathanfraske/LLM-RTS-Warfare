@@ -23,7 +23,7 @@ How the repo is built, developed, and kept tight — across Windows (primary dev
 
 ## Tunables live in `tuning`
 
-Every sim-behavior number — ecology rates, channel efficiencies, mandate costs, demographic factors — lives in the `tuning` schema crate as typed, serde-ready structs with today's values as `Default`. Systems receive their domain struct by reference; **no sim crate declares a tunable constant locally.** `RunConfig.tuning` carries it, so loading a RON tuning file (or per-world variants) is one `serde` call away, and deepening a system never means hunting hardcoded numbers.
+Every sim-behavior number — ecology rates, channel efficiencies, mandate costs, demographic factors — lives in the `tuning` schema crate as typed, serde-ready structs with today's values as `Default`. Systems receive their domain struct by reference; **no sim crate declares a tunable constant locally.** `RunConfig.tuning` carries it, so loading a RON tuning file (or per-world variants) is one `serde` call away, and deepening a system never means hunting hardcoded numbers. Whether something deserves to be a *dynamic system* at all (versus a coefficient here) is governed by the authored-floor tests ([21](21-authored-floor.md)).
 
 ## The recipe surface
 

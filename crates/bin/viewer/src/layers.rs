@@ -1,7 +1,6 @@
 //! Map textures: world terrain, the nation-territory overlay, and the
 //! person-scale local map render.
 
-use directive_schema::WorkKind;
 use eframe::egui::ColorImage;
 use local_map::LocalMap;
 use map_export::palette;
@@ -90,7 +89,7 @@ fn draw_camp(rgb: &mut [u8], map: &LocalMap, cx: u32, cy: u32) {
             }
         }
     }
-    if map.works.contains(&WorkKind::Farmstead) {
+    if map.works.iter().any(|w| w == "farmstead") {
         for dy in -10i64..=10 {
             for dx in 9i64..=30 {
                 let tilled = dy.rem_euclid(2) == 0;
@@ -103,14 +102,14 @@ fn draw_camp(rgb: &mut [u8], map: &LocalMap, cx: u32, cy: u32) {
             }
         }
     }
-    if map.works.contains(&WorkKind::Granary) {
+    if map.works.iter().any(|w| w == "granary") {
         for dy in -12i64..=-8 {
             for dx in -12i64..=-8 {
                 paint(cx + dx, cy + dy, (96, 70, 44));
             }
         }
     }
-    if map.works.contains(&WorkKind::Dwellings) {
+    if map.works.iter().any(|w| w == "dwellings") {
         for (hx, hy) in EXTRA {
             for dy in 0..2i64 {
                 for dx in 0..2i64 {

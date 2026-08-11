@@ -66,13 +66,14 @@ fn overseer_line(event: &Event, world: &World) -> Option<Line> {
             ),
             Kind::Overseer,
         ),
-        Event::StanceChanged {
+        Event::PolicySet {
             tick,
             nation,
-            stance,
+            key,
+            value,
         } => (
             format!(
-                "{} · {} sets a {stance:?} posture",
+                "{} · {} sets {key} to {value}",
                 stamp(*tick),
                 nation_name(world, *nation)
             ),
@@ -94,27 +95,10 @@ fn overseer_line(event: &Event, world: &World) -> Option<Line> {
             work,
         } => (
             format!(
-                "{} · {} commissions a {work:?} on tile {}",
+                "{} · {} commissions a {work} on tile {}",
                 stamp(*tick),
                 nation_name(world, *nation),
                 tile.0
-            ),
-            Kind::Overseer,
-        ),
-        Event::LaborSet {
-            tick,
-            nation,
-            weights,
-        } => (
-            format!(
-                "{} · {} directs its labors: gather {} hunt {} fish {} cultivate {} herd {}",
-                stamp(*tick),
-                nation_name(world, *nation),
-                weights[0],
-                weights[1],
-                weights[2],
-                weights[3],
-                weights[4]
             ),
             Kind::Overseer,
         ),
@@ -169,7 +153,7 @@ fn worldly_line(event: &Event, world: &World) -> Option<Line> {
             work,
         } => (
             format!(
-                "{} · the {work:?} of {} on tile {} stands complete",
+                "{} · the {work} of {} on tile {} stands complete",
                 stamp(*tick),
                 nation_name(world, *nation),
                 tile.0

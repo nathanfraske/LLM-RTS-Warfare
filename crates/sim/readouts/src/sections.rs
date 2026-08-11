@@ -5,7 +5,7 @@ use std::fmt::Write as _;
 
 use cohorts::{CohortKey, Cohorts};
 use economy::Economy;
-use economy::channels::CHANNEL_NAMES;
+use economy::channels::{CHANNEL_NAMES, CHANNELS, LABOR_KEYS};
 use fauna::Fauna;
 use nations::WorldNations;
 use species::Species;
@@ -19,15 +19,15 @@ pub(crate) fn works(out: &mut String, nation_id: NationId, world: &WorldNations)
     let _ = writeln!(out, "\n## Works\n");
     let mut any = false;
     for t in world.owned_tiles(nation_id) {
-        for kind in world.works.completed(t.0) {
-            let _ = writeln!(out, "- tile {}: {kind:?} (complete)", t.0);
+        for work in world.works.completed(t.0) {
+            let _ = writeln!(out, "- tile {}: {work} (complete)", t.0);
             any = true;
         }
         for state in world.works.in_progress(t.0) {
             let _ = writeln!(
                 out,
-                "- tile {}: {:?} (building, {} months left)",
-                t.0, state.kind, state.months_left
+                "- tile {}: {} (building, {} months left)",
+                t.0, state.work, state.months_left
             );
             any = true;
         }
@@ -112,21 +112,29 @@ pub(crate) fn labor(
 ## Labor and returns
 "
     );
-    let total: u32 = nation.labor_milli.iter().map(|&w| u32::from(w)).sum();
-    let share = |w: u16| u32::from(w) * 100 / total.max(1);
+    let labor = economy::labor_milli(&nation.policy);
+    let total: u32 = labor.iter().map(|&w| u32::from(w)).sum();
+    let mut parts: Vec<String> = Vec::new();
+    let mut any_pinned = false;
+    for i in 0..CHANNELS {
+        let pinned = nation.policy.directed(LABOR_KEYS[i]);
+        any_pinned |= pinned;
+        parts.push(format!(
+            "{} {}%{}",
+            CHANNEL_NAMES[i],
+            u32::from(labor[i]) * 100 / total.max(1),
+            if pinned { "*" } else { "" }
+        ));
+    }
+    let _ = writeln!(out, "Allocation: {}", parts.join(" · "));
     let _ = writeln!(
         out,
-        "Allocation ({}): gather {}% · hunt {}% · fish {}% · cultivate {}% · herd {}%",
-        if nation.labor_directed {
-            "council-directed"
+        "{}",
+        if any_pinned {
+            "(* pinned by council decree; unmarked weights follow returns)"
         } else {
-            "following returns"
-        },
-        share(nation.labor_milli[0]),
-        share(nation.labor_milli[1]),
-        share(nation.labor_milli[2]),
-        share(nation.labor_milli[3]),
-        share(nation.labor_milli[4]),
+            "(all weights follow returns)"
+        }
     );
     let _ = writeln!(
         out,

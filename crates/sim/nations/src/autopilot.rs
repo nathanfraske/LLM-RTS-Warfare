@@ -6,21 +6,22 @@
 //! composition root, so this crate needs no ecology dependency). Bands that
 //! keep moving are nomads; bands that invest stay — nobody names either.
 
-use crate::WorldNations;
+use crate::{WorldNations, registry};
 use cohorts::{CohortKey, Cohorts};
-use directive_schema::Stance;
+use policy::PolicyTree;
 use sim_events::{Event, EventLog};
 use species::Species;
 use tuning::Society;
 use world_map::{WorldFields, tiles};
 use world_schema::{NationId, Quantity, Tick, TileId};
 
-/// Stance interpretation: split-population threshold multiplier.
-fn stance_threshold(stance: Stance, soc: &Society) -> Quantity {
-    match stance {
-        Stance::Consolidate => Quantity::from_num(soc.stance_consolidate_mult),
-        Stance::Steady => Quantity::from_num(soc.stance_steady_mult),
-        Stance::Expansive => Quantity::from_num(soc.stance_expansive_mult),
+/// Posture interpretation: split-population threshold multiplier. Unknown
+/// text can't get in (the registry bounds the leaf) but reads as steady.
+fn posture_threshold(tree: &PolicyTree, soc: &Society) -> Quantity {
+    match tree.text(registry::POSTURE) {
+        registry::POSTURE_CONSOLIDATE => Quantity::from_num(soc.stance_consolidate_mult),
+        registry::POSTURE_EXPANSIVE => Quantity::from_num(soc.stance_expansive_mult),
+        _ => Quantity::from_num(soc.stance_steady_mult),
     }
 }
 
@@ -123,7 +124,7 @@ fn split_crowded(
         let nation = &world.nations[ni];
         let s = &table[nation.species.0 as usize];
         let split_threshold = Quantity::from_num(soc.split_base_pop)
-            * stance_threshold(nation.stance, soc)
+            * posture_threshold(&nation.policy, soc)
             * Quantity::from_num(1000)
             / Quantity::from_num(s.drive_milli);
 

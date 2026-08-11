@@ -1,7 +1,8 @@
 //! The golden replay gate: identical config ⇒ identical event-log hash
 //! (docs/01-architecture.md, "Testing and CI gates").
 
-use directive_schema::{Directive, DirectiveEntry, Stance};
+use directive_schema::{Directive, DirectiveEntry};
+use policy::PolicyValue;
 use sim_server::{RunConfig, run_world};
 
 fn small() -> RunConfig {
@@ -36,29 +37,36 @@ fn different_seed_different_world() {
 
 #[test]
 fn directives_are_replay_input() {
+    let expansive = || Directive::Set {
+        key: "expansion.posture".into(),
+        value: PolicyValue::Text("expansive".into()),
+    };
     let silent = small();
     let mut governed = small();
     governed.directives = vec![
         DirectiveEntry {
             tick: 0,
             nation: 0,
-            directive: Directive::Name {
-                name: "The Ember Compact".into(),
+            directive: Directive::Enact {
+                action: "nation.name".into(),
+                target: None,
+                params: [(
+                    "name".to_string(),
+                    PolicyValue::Text("The Ember Compact".into()),
+                )]
+                .into_iter()
+                .collect(),
             },
         },
         DirectiveEntry {
             tick: 720,
             nation: 0,
-            directive: Directive::SetStance {
-                stance: Stance::Expansive,
-            },
+            directive: expansive(),
         },
         DirectiveEntry {
             tick: 720,
             nation: 99,
-            directive: Directive::SetStance {
-                stance: Stance::Expansive,
-            },
+            directive: expansive(),
         },
     ];
     let a = run_world(&silent);

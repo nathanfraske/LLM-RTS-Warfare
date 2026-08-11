@@ -9,6 +9,7 @@ publish.workspace = true
 world-schema = { workspace = true }
 tuning = { workspace = true }
 directive-schema = { workspace = true }
+policy = { workspace = true }
 sim-events = { workspace = true }
 world-map = { workspace = true }
 cohorts = { workspace = true }

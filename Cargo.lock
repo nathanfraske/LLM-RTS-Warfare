@@ -790,6 +790,7 @@ checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 name = "directive-schema"
 version = "0.0.1"
 dependencies = [
+ "policy",
  "serde",
 ]
 
@@ -865,10 +866,10 @@ name = "economy"
 version = "0.0.1"
 dependencies = [
  "cohorts",
- "directive-schema",
  "fauna",
  "flora",
  "nations",
+ "policy",
  "sim-events",
  "species",
  "tuning",
@@ -1866,7 +1867,6 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 name = "local-map"
 version = "0.0.1"
 dependencies = [
- "directive-schema",
  "flora",
  "sim-events",
  "world-map",
@@ -1986,6 +1986,7 @@ version = "0.0.1"
 dependencies = [
  "cohorts",
  "directive-schema",
+ "policy",
  "sim-events",
  "species",
  "tuning",
@@ -2569,6 +2570,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "policy"
+version = "0.0.1"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "polling"
 version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2749,6 +2757,7 @@ dependencies = [
  "economy",
  "fauna",
  "nations",
+ "policy",
  "sim-events",
  "species",
  "tuning",
@@ -2979,7 +2988,7 @@ name = "sim-events"
 version = "0.0.1"
 dependencies = [
  "blake3",
- "directive-schema",
+ "policy",
  "postcard",
  "serde",
  "world-schema",
@@ -2995,6 +3004,7 @@ dependencies = [
  "fauna",
  "flora",
  "nations",
+ "policy",
  "readouts",
  "serde_json",
  "sim-clock",

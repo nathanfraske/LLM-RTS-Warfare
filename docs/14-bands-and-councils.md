@@ -34,15 +34,16 @@ The pre-MCP agent interface is the report/directive file pair. Demonstrated in-s
 
 **Upgrade path (M2, [05a](05a-agent-integration-spec.md)):** the report becomes `situation_report`/`dashboard` tool results, the JSON entries become directive tool calls, and the file becomes the MCP layer's logged input stream. Nothing in the sim changes.
 
-## Directive schema v1 (`directive-schema`)
+## Directive schema (`directive-schema`)
+
+Two generic forms over the registry ([20](20-open-directives.md)) — the schema never grows another verb:
 
 ```json
-{ "tick": 43200, "nation": 0, "directive": { "kind": "Name",      "name": "The Emberfast" } }
-{ "tick": 43200, "nation": 0, "directive": { "kind": "SetStance", "stance": "Expansive" } }
-{ "tick": 43200, "nation": 0, "directive": { "kind": "Settle",    "province": 31 } }
+{ "tick": 43200, "nation": 0, "directive": { "kind": "Set",   "key": "expansion.posture", "value": "expansive" } }
+{ "tick": 43200, "nation": 0, "directive": { "kind": "Enact", "action": "band.settle", "target": 4431 } }
 ```
 
-Validation is server-side and in-world; rejections are logged events that appear in the nation's chronicle ("a decree failed: province does not border your territory").
+Validation is server-side and in-world against the live registry; rejections are logged events that appear in the nation's chronicle ("a decree failed: tile does not border your territory").
 
 ## Deliberately deferred
 

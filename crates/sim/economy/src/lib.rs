@@ -10,13 +10,39 @@ pub mod channels;
 
 use std::collections::BTreeMap;
 
-use channels::{CHANNELS, ChannelYields};
+use channels::{CHANNEL_SUMMARIES, CHANNELS, ChannelYields, LABOR_KEYS};
 use cohorts::{CohortKey, Cohorts};
 use fauna::Fauna;
 use nations::WorldNations;
-use tuning::Tuning;
+use policy::{PolicyDef, PolicyTree, PolicyType, PolicyValue};
+use tuning::{Society, Tuning};
 use world_map::WorldFields;
 use world_schema::{Quantity, TileId};
+
+/// The labor-allocation leaves this system registers (docs/20): one per
+/// channel, parts-per-thousand of the whole, renormalized in use.
+#[must_use]
+pub fn policy_defs(soc: &Society) -> Vec<PolicyDef> {
+    (0..CHANNELS)
+        .map(|i| PolicyDef {
+            key: LABOR_KEYS[i].into(),
+            kind: PolicyType::IntRange { min: 0, max: 1000 },
+            default: PolicyValue::Int(i64::from(soc.spawn_labor[i])),
+            cost: soc.cost_labor,
+            summary: CHANNEL_SUMMARIES[i].into(),
+        })
+        .collect()
+}
+
+/// A nation's labor weights, read live from its policy tree.
+#[must_use]
+pub fn labor_milli(tree: &PolicyTree) -> [u16; CHANNELS] {
+    let mut out = [0u16; CHANNELS];
+    for (i, key) in LABOR_KEYS.iter().enumerate() {
+        out[i] = u16::try_from(tree.int(key).clamp(0, 1000)).expect("clamped");
+    }
+    out
+}
 
 /// Per-settlement economic state.
 #[derive(Debug, Default, Clone)]
@@ -80,20 +106,16 @@ impl Economy {
                 continue;
             }
             let entry = self.tiles.entry(t).or_default();
-            if !world.nations[ni].labor_directed {
-                let mut labor = world.nations[ni].labor_milli;
-                autopilot_weights(
-                    &mut labor,
-                    fields,
-                    wild,
-                    flora_live,
-                    entry,
-                    t as usize,
-                    &tun.subsistence,
-                );
-                world.nations[ni].labor_milli = labor;
-            }
-            let labor = world.nations[ni].labor_milli;
+            autopilot_weights(
+                &mut world.nations[ni].policy,
+                fields,
+                wild,
+                flora_live,
+                entry,
+                t as usize,
+                &tun.subsistence,
+            );
+            let labor = labor_milli(&world.nations[ni].policy);
             let yields = channels::extract(
                 &labor,
                 workers,
@@ -174,10 +196,11 @@ pub fn potential(
     channels::potential(fields, wild, flora_live, tile, sub)
 }
 
-/// Undirected bands follow marginal returns: shift a step toward the best
-/// channel, away from the worst. Deterministic, slow, unbiased.
+/// Undirected weights follow marginal returns: shift a step toward the best
+/// channel, away from the worst. Deterministic, slow, unbiased — and it
+/// never touches a leaf the council has pinned (docs/20).
 fn autopilot_weights(
-    labor: &mut [u16; CHANNELS],
+    tree: &mut PolicyTree,
     fields: &WorldFields,
     wild: &Fauna,
     flora_live: &[u8],
@@ -185,18 +208,33 @@ fn autopilot_weights(
     tile: usize,
     sub: &tuning::Subsistence,
 ) {
+    let labor = labor_milli(tree);
+    let free: Vec<usize> = (0..CHANNELS)
+        .filter(|&i| !tree.directed(LABOR_KEYS[i]))
+        .collect();
     let marginal = channels::marginal(fields, wild, flora_live, tile_econ, tile, sub);
-    let best = (0..CHANNELS)
-        .max_by_key(|&i| (marginal[i].to_bits(), CHANNELS - i))
-        .expect("channels");
-    let worst = (0..CHANNELS)
+    let best = free
+        .iter()
+        .copied()
+        .max_by_key(|&i| (marginal[i].to_bits(), CHANNELS - i));
+    let worst = free
+        .iter()
+        .copied()
         .filter(|&i| labor[i] > 0)
-        .min_by_key(|&i| (marginal[i].to_bits(), CHANNELS - i))
-        .expect("channels");
+        .min_by_key(|&i| (marginal[i].to_bits(), CHANNELS - i));
+    let (Some(best), Some(worst)) = (best, worst) else {
+        return;
+    };
     if best == worst {
         return;
     }
     let step = labor[worst].min(sub.autopilot_step);
-    labor[worst] -= step;
-    labor[best] = labor[best].saturating_add(step);
+    tree.set_auto(
+        LABOR_KEYS[worst],
+        PolicyValue::Int(i64::from(labor[worst] - step)),
+    );
+    tree.set_auto(
+        LABOR_KEYS[best],
+        PolicyValue::Int(i64::from(labor[best].saturating_add(step))),
+    );
 }

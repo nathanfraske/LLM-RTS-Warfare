@@ -30,12 +30,13 @@ fn council_line(e: &Event, id: NationId) -> Option<String> {
         Event::NationNamed { tick, nation, name } if *nation == id => {
             Some(format!("{} — we took the name \"{name}\"", stamp(*tick)))
         }
-        Event::StanceChanged {
+        Event::PolicySet {
             tick,
             nation,
-            stance,
+            key,
+            value,
         } if *nation == id => Some(format!(
-            "{} — the council set a {stance:?} posture",
+            "{} — the council set {key} to {value}",
             stamp(*tick)
         )),
         Event::SettlementDecreed { tick, nation, tile } if *nation == id => Some(format!(
@@ -49,22 +50,9 @@ fn council_line(e: &Event, id: NationId) -> Option<String> {
             tile,
             work,
         } if *nation == id => Some(format!(
-            "{} — the council commissioned a {work:?} on tile {}",
+            "{} — the council commissioned a {work} on tile {}",
             stamp(*tick),
             tile.0
-        )),
-        Event::LaborSet {
-            tick,
-            nation,
-            weights,
-        } if *nation == id => Some(format!(
-            "{} — the council set the people's labors: gather {} · hunt {} · fish {} · cultivate {} · herd {} (per mille)",
-            stamp(*tick),
-            weights[0],
-            weights[1],
-            weights[2],
-            weights[3],
-            weights[4]
         )),
         Event::DirectiveRejected {
             tick,
@@ -106,7 +94,7 @@ fn world_line(e: &Event, id: NationId, world: &WorldNations) -> Option<String> {
             tile,
             work,
         } if *nation == id => Some(format!(
-            "{} — our {work:?} on tile {} stands complete",
+            "{} — our {work} on tile {} stands complete",
             stamp(*tick),
             tile.0
         )),

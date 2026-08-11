@@ -1,51 +1,27 @@
-//! Typed directives — the only way an overseer steers a nation
-//! (docs/04-institutions-directives.md; applied from the logged input stream).
+//! The two generic directives — the only way an overseer steers a nation
+//! (docs/20-open-directives.md). What may be set or enacted is not listed
+//! here: the registry a world assembles at genesis decides, and every
+//! report renders it. This schema never grows another verb.
 
+use std::collections::BTreeMap;
+
+use policy::PolicyValue;
 use serde::{Deserialize, Serialize};
-
-/// Expansion posture, interpreted by the band autopilot (docs/14-bands-and-councils.md).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Stance {
-    /// Stay put; split only under real pressure.
-    Consolidate,
-    /// Default: split when a settlement grows crowded.
-    Steady,
-    /// Push the frontier early and often.
-    Expansive,
-}
-
-/// A commissionable project (docs/16-mandate-and-works.md). Effects live in
-/// the sim; this is the policy vocabulary.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum WorkKind {
-    Farmstead,
-    Granary,
-    Dwellings,
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Directive {
-    /// Christen the nation — names flow into reports and the world log. Free.
-    Name { name: String },
-    /// Set the expansion posture. Costs mandate.
-    SetStance { stance: Stance },
-    /// Decree settlement of a specific frontier tile (must border territory).
-    /// Costs mandate.
-    Settle { tile: u32 },
-    /// Commission a work on an owned tile; institutions build it over months.
-    /// Costs mandate.
-    Commission { tile: u32, work: WorkKind },
-    /// Direct the nation's labor across the five subsistence channels
-    /// (gather, hunt, fish, cultivate, herd), in parts-per-thousand.
-    /// Normalized server-side; overrides the return-following autopilot.
-    /// Costs mandate.
-    SetLabor {
-        gather: u16,
-        hunt: u16,
-        fish: u16,
-        cultivate: u16,
-        herd: u16,
+    /// Set a registered policy leaf; the leaf stays pinned against the
+    /// autopilot afterwards. Costs the leaf's registered mandate price.
+    Set { key: String, value: PolicyValue },
+    /// Enact a registered action, aimed at a target tile where the action
+    /// demands one. Costs the action's registered mandate price.
+    Enact {
+        action: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        target: Option<u32>,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        params: BTreeMap<String, PolicyValue>,
     },
 }
 

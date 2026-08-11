@@ -62,7 +62,7 @@ impl LocalFolk {
             nation,
             camp,
             shoreline: shoreline(map),
-            has_farm: map.works.contains(&directive_schema::WorkKind::Farmstead),
+            has_farm: map.works.iter().any(|w| w == "farmstead"),
             rng: 0x5EED_F01C,
         };
         if map.camp.is_some() {

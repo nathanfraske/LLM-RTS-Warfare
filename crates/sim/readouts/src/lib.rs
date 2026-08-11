@@ -2,6 +2,7 @@
 //! the nation can know (docs/05-agents-and-mcp.md — the amnesiac-leader test:
 //! a cold-started overseer must govern well from this text alone).
 
+mod charter;
 pub mod chronicle;
 mod sections;
 
@@ -12,6 +13,7 @@ use cohorts::{CohortKey, Cohorts};
 use economy::Economy;
 use fauna::Fauna;
 use nations::WorldNations;
+use policy::Registry;
 use sim_events::EventLog;
 use species::Species;
 use tuning::Tuning;
@@ -40,6 +42,7 @@ pub fn nation_report(
     all_cohorts: &Cohorts,
     log: &EventLog,
     now: Tick,
+    registry: &Registry,
     tun: &Tuning,
 ) -> String {
     let nation = world
@@ -58,8 +61,10 @@ pub fn nation_report(
     );
     let _ = writeln!(
         out,
-        "\nPeople: {} · Stance: {:?} · Seat: tile {}",
-        s.name, nation.stance, nation.seat.0
+        "\nPeople: {} · Posture: {} · Seat: tile {}",
+        s.name,
+        nation.policy.text(nations::registry::POSTURE),
+        nation.seat.0
     );
     let _ = writeln!(
         out,
@@ -81,31 +86,7 @@ pub fn nation_report(
         let _ = writeln!(out, "- {line}");
     }
 
-    let _ = writeln!(
-        out,
-        "\n## Council directives\n\nAppend JSON objects to the directive log \
-         (applied at their tick; current tick is {}). Paid directives spend mandate \
-         (docs/16): Name free · SetStance 1 · SetLabor 1 · Settle 2 · Commission 3, \
-         all scaled by autonomy. Works: Farmstead, Granary, Dwellings. SetLabor \
-         weights are parts-per-thousand across gather/hunt/fish/cultivate/herd and \
-         override the return-following autopilot. Examples:\n\n```json\n\
-         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Name\", \"name\": \"...\" }} }}\n\
-         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"SetStance\", \"stance\": \"Expansive\" }} }}\n\
-         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Settle\", \"tile\": <frontier id> }} }}\n\
-         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"Commission\", \"tile\": <owned id>, \"work\": \"Farmstead\" }} }}\n\
-         {{ \"tick\": {}, \"nation\": {}, \"directive\": {{ \"kind\": \"SetLabor\", \"gather\": 300, \"hunt\": 250, \"fish\": 250, \"cultivate\": 150, \"herd\": 50 }} }}\n```",
-        now.0,
-        now.0,
-        nation_id.0,
-        now.0,
-        nation_id.0,
-        now.0,
-        nation_id.0,
-        now.0,
-        nation_id.0,
-        now.0,
-        nation_id.0
-    );
+    charter::charter(&mut out, nation, registry, now, tun);
     out
 }
 
@@ -121,7 +102,7 @@ pub fn world_report(
     let (year, month) = year_month(now);
     let mut out = String::new();
     let _ = writeln!(out, "# World Report — Year {year}, Month {month}\n");
-    let _ = writeln!(out, "| Nation | People | Stance | Tiles | Population |");
+    let _ = writeln!(out, "| Nation | People | Posture | Tiles | Population |");
     let _ = writeln!(out, "|---|---|---|---|---|");
     for nation in &world.nations {
         let tiles_held = world.owned_tiles(nation.id).count();
@@ -136,8 +117,12 @@ pub fn world_report(
             .fold(Quantity::ZERO, |a, b| a + b);
         let _ = writeln!(
             out,
-            "| {} | {} | {:?} | {} | {:.0} |",
-            nation.name, table[nation.species.0 as usize].name, nation.stance, tiles_held, pop
+            "| {} | {} | {} | {} | {:.0} |",
+            nation.name,
+            table[nation.species.0 as usize].name,
+            nation.policy.text(nations::registry::POSTURE),
+            tiles_held,
+            pop
         );
     }
     let claimed = world.owner.iter().filter(|o| o.is_some()).count();

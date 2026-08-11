@@ -1,8 +1,9 @@
 //! Mandate-priced commissions: works build over months, apply their effects,
 //! and directive spending is deterministic replay input
-//! (docs/16-mandate-and-works.md, docs/19-ecology-and-subsistence.md).
+//! (docs/16-mandate-and-works.md, docs/20-open-directives.md).
 
-use directive_schema::{Directive, DirectiveEntry, WorkKind};
+use directive_schema::{Directive, DirectiveEntry};
+use policy::PolicyValue;
 use sim_server::{RunConfig, World};
 use world_schema::Quantity;
 
@@ -24,9 +25,12 @@ fn commissioned_works_complete_and_boost_cultivation() {
     let commission = |tick: u64| DirectiveEntry {
         tick,
         nation: nation.0,
-        directive: Directive::Commission {
-            tile: seat.0,
-            work: WorkKind::Farmstead,
+        directive: Directive::Enact {
+            action: "works.commission".into(),
+            target: Some(seat.0),
+            params: [("work".to_string(), PolicyValue::Text("farmstead".into()))]
+                .into_iter()
+                .collect(),
         },
     };
     // The second, duplicate commission must be rejected, not doubled.

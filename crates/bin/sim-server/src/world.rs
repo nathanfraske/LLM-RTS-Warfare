@@ -8,6 +8,7 @@ use directive_schema::DirectiveEntry;
 use economy::Economy;
 use fauna::Fauna;
 use nations::WorldNations;
+use policy::Registry;
 use sim_clock::{SimClock, is_month_boundary};
 use sim_events::{Event, EventLog, WorldSeed};
 use tuning::Tuning;
@@ -32,6 +33,8 @@ pub struct World {
     pub log: EventLog,
     pub table: &'static [species::Species],
     pub tuning: Tuning,
+    /// Every lever and action alive in this world (docs/20-open-directives.md).
+    pub registry: Registry,
     clock: SimClock,
     entries: Vec<DirectiveEntry>,
     next_entry: usize,
@@ -46,11 +49,13 @@ impl World {
         let table = species::archetypes();
         let mut log = EventLog::new();
         let tuning = config.tuning.clone();
+        let registry = crate::registry::assemble(&tuning.society);
         let nations = nations::spawn(
             &genesis.fields,
             table,
             config.nations,
             &mut log,
+            &registry,
             &tuning.society,
         );
         let all_cohorts = nations::found_cohorts(seed, &nations, &tuning.society);
@@ -84,6 +89,7 @@ impl World {
             log,
             table,
             tuning,
+            registry,
             clock: SimClock::new(),
             entries,
             next_entry: 0,
@@ -245,6 +251,7 @@ impl World {
                 &self.entries[self.next_entry],
                 &mut self.nations,
                 &self.genesis.fields,
+                &self.registry,
                 &mut self.log,
                 &self.tuning.society,
             );
@@ -252,9 +259,12 @@ impl World {
         }
     }
 
-    /// Write the council + world reports for the current tick.
+    /// Write the council + world reports for the current tick. The
+    /// directory is cleared first so a vanished nation can't leave a stale
+    /// report behind to mislead its overseer.
     pub fn write_reports(&self, dir: &std::path::Path) {
         let now = self.tick();
+        let _ = std::fs::remove_dir_all(dir);
         std::fs::create_dir_all(dir).expect("create report directory");
         for nation in &self.nations.nations {
             let report = readouts::nation_report(
@@ -268,6 +278,7 @@ impl World {
                 &self.cohorts,
                 &self.log,
                 now,
+                &self.registry,
                 &self.tuning,
             );
             std::fs::write(dir.join(format!("nation-{}.md", nation.id.0)), report)
