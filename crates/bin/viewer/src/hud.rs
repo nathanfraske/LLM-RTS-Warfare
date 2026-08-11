@@ -134,6 +134,12 @@ pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<TileId>) {
             world.fauna.huntable(tile),
             world.fauna.fishable(fields, tile)
         ));
+        if let Some(s) = world.fauna.top_species_at(tile) {
+            ui.label(format!(
+                "Most common beast: {}",
+                s.describe(&world.fauna.substances)
+            ));
+        }
     }
     ui.label(format!(
         "Climate: {:.1}°C · moisture {} · {}",

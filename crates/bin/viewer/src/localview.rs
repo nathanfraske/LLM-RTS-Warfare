@@ -74,7 +74,7 @@ impl LocalView {
         }
     }
 
-    pub fn canvas(&mut self, ui: &mut egui::Ui, dt: f32) {
+    pub fn canvas(&mut self, ui: &mut egui::Ui, dt: f32, paused: bool) {
         let (response, painter) =
             ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
         let rect = response.rect;
@@ -87,7 +87,13 @@ impl LocalView {
         );
         let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
         painter.image(self.texture.id(), map_rect, uv, egui::Color32::WHITE);
-        let felled = self.folk.update(&self.map, dt);
+        // Pause stops people too — the presence layer renders sim time,
+        // not wall time.
+        let felled = if paused {
+            Vec::new()
+        } else {
+            self.folk.update(&self.map, dt)
+        };
         if !felled.is_empty() {
             for c in felled {
                 self.map.tree[c] = false;

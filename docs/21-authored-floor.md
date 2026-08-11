@@ -27,11 +27,13 @@ Fails all three → it is a **coefficient** ([tuning](01a-foundation.md)) or a p
 |---|---|---|---|
 | Time | 1-hour tick; presence renders ~1s but **earns against aggregates** ([17](17-presence.md)) | months, famines, campaigns | sub-second physics |
 | People | cohort statistics ([02](02-simulation-core.md)) | bands, moves, splits, ways of life | persistent simulated individuals |
-| Ecology | trait axes: diet, water, woodiness ([19](19-ecology-and-subsistence.md)) | food webs, crashes, biomes-as-webs | genetics, metabolism, biochemistry |
+| Ecology | trait axes ([19](19-ecology-and-subsistence.md)) + part/substance primitives ([23](23-bodies-and-substances.md)) | food webs, crashes, anatomies, wounds | genetics, metabolism, chemistry below substances |
 | Economy | five channels, conserved stocks ([18](18-economy.md)) | portfolios, nomadism, famine | calories, enzymes, soil chemistry |
 | World | quantized field layers ([13](13-worldgen.md)) | rivers, climates, later erosion as field passes | fluid dynamics, particles |
 | Governance | registry leaves & actions ([20](20-open-directives.md)) | policy regimes, doctrines | simulated clerks and parliaments |
 | Technology | ~45 grammar primitives ([03a](03a-grammar-spec.md)) | designs, doctrines, missiles | reaction kinetics, materials science |
+
+The floor has moved exactly once by this rule: wounds and generated anatomies could not be expressed at trait-axis level, so [23](23-bodies-and-substances.md) lowered the ecology floor to part/substance primitives — with its own hard guards (small authored periodic table, no chemistry below substances, cohorts stay authoritative, every plan self-describes). That is what a legitimate descent looks like; it is also the last one currently foreseen.
 
 ## Ruling the deferred queue
 

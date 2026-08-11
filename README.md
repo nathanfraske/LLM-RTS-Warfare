@@ -44,6 +44,9 @@ See [01a-foundation](docs/01a-foundation.md) for bootstrap from a bare machine.
 | [20-open-directives](docs/20-open-directives.md) | No authored verb list — the self-describing policy & action registry |
 | [21-authored-floor](docs/21-authored-floor.md) | Where emergence stops — the floor rule, the three tests, the floors per domain |
 | [22-knowledge-and-discovery](docs/22-knowledge-and-discovery.md) | The map is a memory — scouts, staleness, motivated movement, encounter-based contact |
+| [23-bodies-and-substances](docs/23-bodies-and-substances.md) | The anatomy grammar — generated organs, limbs, senses, and working fluids; wounds as addresses |
+| [24-the-turning-year](docs/24-the-turning-year.md) | Seasons as a configurable world condition — one forcing through every existing system |
+| [25-culture-and-generations](docs/25-culture-and-generations.md) | Learned culture on age-structured cohorts — substrate modeled, content never authored |
 
 ## Stack (decided)
 

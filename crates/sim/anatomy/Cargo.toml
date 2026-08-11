@@ -1,5 +1,5 @@
 [package]
-name = "fauna"
+name = "anatomy"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,14 +8,8 @@ publish.workspace = true
 [dependencies]
 world-schema = { workspace = true }
 tuning = { workspace = true }
-anatomy = { workspace = true }
 sim-events = { workspace = true }
-world-map = { workspace = true }
-species = { workspace = true }
 serde = { workspace = true }
 
 [lints]
 workspace = true
-
-[dev-dependencies]
-flora = { workspace = true }

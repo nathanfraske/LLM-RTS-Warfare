@@ -224,7 +224,9 @@ impl eframe::App for App {
             self.local = None;
         }
         self.advance(dt);
-        self.folk.update(dt as f32);
+        if !self.paused {
+            self.folk.update(dt as f32);
+        }
         if self.territory_dirty {
             self.territory.set(
                 layers::territory_image(&self.world),
@@ -267,7 +269,7 @@ impl eframe::App for App {
             });
         egui::CentralPanel::default().show(ui, |ui| {
             if let Some(local) = self.local.as_mut() {
-                local.canvas(ui, dt as f32);
+                local.canvas(ui, dt as f32, self.paused);
             } else {
                 self.world_canvas(ui, dt as f32);
             }

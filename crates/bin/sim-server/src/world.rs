@@ -63,7 +63,13 @@ impl World {
         );
         let all_cohorts = nations::found_cohorts(seed, &nations, &tuning.society);
         let flora_live = genesis.flora.density.clone();
-        let wild = Fauna::genesis(seed, &genesis.fields, &flora_live, &tuning.ecology);
+        let wild = Fauna::genesis(
+            seed,
+            &genesis.fields,
+            &flora_live,
+            &tuning.ecology,
+            &tuning.bodies,
+        );
         let cells = genesis.fields.grid().cells();
         log.push(Event::WorldGenerated {
             land_tiles: genesis.fields.land_cells(),

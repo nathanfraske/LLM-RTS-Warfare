@@ -157,7 +157,13 @@ mod tests {
     fn world() -> (WorldFields, Vec<u8>, Fauna) {
         let fields = WorldFields::generate(WorldSeed(42), 64);
         let flora = flora::settle::settle(WorldSeed(42), &fields, 24);
-        let fauna = Fauna::genesis(WorldSeed(42), &fields, &flora.density, &Ecology::default());
+        let fauna = Fauna::genesis(
+            WorldSeed(42),
+            &fields,
+            &flora.density,
+            &Ecology::default(),
+            &tuning::Bodies::default(),
+        );
         (fields, flora.density, fauna)
     }
 

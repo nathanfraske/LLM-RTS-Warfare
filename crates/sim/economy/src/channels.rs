@@ -198,7 +198,13 @@ mod tests {
         let flora = vec![40u8, 160, 70, 0];
         let eco = tuning::Ecology::default();
         let sub = Subsistence::default();
-        let wild = fauna::Fauna::genesis(sim_events::WorldSeed(7), &fields, &flora, &eco);
+        let wild = fauna::Fauna::genesis(
+            sim_events::WorldSeed(7),
+            &fields,
+            &flora,
+            &eco,
+            &tuning::Bodies::default(),
+        );
 
         // River tile with stocked waters: fishing must top the table.
         let bare = TileEconomy::default();

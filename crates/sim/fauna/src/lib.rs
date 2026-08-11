@@ -8,129 +8,40 @@
 //! `dynamics` runs the monthly trophic tick.
 
 pub mod dynamics;
+mod genomes;
 
-use serde::{Deserialize, Serialize};
-use sim_events::rng;
-use sim_events::{SystemId, WorldSeed};
-use tuning::Ecology;
+pub use genomes::{FaunaSpecies, generate_species};
+
+use anatomy::Substance;
+use sim_events::WorldSeed;
+use tuning::{Bodies, Ecology};
 use world_map::{Water, WorldFields};
-use world_schema::{Quantity, Tick};
-
-const FAUNAGEN: SystemId = SystemId(10);
-
-/// An animal genome: climate tolerances plus continuous trait axes.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct FaunaSpecies {
-    pub id: u16,
-    /// 0 = pure plant-eater … 1000 = pure flesh-eater.
-    pub diet_milli: u16,
-    /// 0 = fully terrestrial … 1000 = fully aquatic.
-    pub water_milli: u16,
-    pub t_opt: i16,
-    pub t_width: i16,
-    pub m_opt: u8,
-    pub m_width: u8,
-    /// Monthly intrinsic growth ×1000 (falls out of diet at generation:
-    /// plant-eaters breed fast, flesh-eaters slow).
-    pub repro_milli: u16,
-    /// Food yielded per unit of biomass taken, ×1000.
-    pub edible_milli: u16,
-}
-
-impl FaunaSpecies {
-    #[must_use]
-    pub fn plant_frac(&self) -> Quantity {
-        Quantity::ONE - Quantity::from_num(self.diet_milli) / Quantity::from_num(1000)
-    }
-
-    #[must_use]
-    pub fn flesh_frac(&self) -> Quantity {
-        Quantity::from_num(self.diet_milli) / Quantity::from_num(1000)
-    }
-
-    #[must_use]
-    pub fn land_frac(&self) -> Quantity {
-        Quantity::ONE - Quantity::from_num(self.water_milli) / Quantity::from_num(1000)
-    }
-
-    #[must_use]
-    pub fn water_frac(&self) -> Quantity {
-        Quantity::from_num(self.water_milli) / Quantity::from_num(1000)
-    }
-
-    /// A human-readable description of where this genome sits in trait space.
-    #[must_use]
-    pub fn describe(&self) -> String {
-        let diet = match self.diet_milli {
-            0..=300 => "plant-eater",
-            301..=650 => "omnivore",
-            _ => "flesh-eater",
-        };
-        let habitat = match self.water_milli {
-            0..=250 => "land",
-            251..=650 => "shoreline",
-            _ => "water",
-        };
-        format!("{habitat} {diet}")
-    }
-}
+use world_schema::Quantity;
 
 /// All wild populations, species-major: `pop[s * cells + tile]`.
 #[derive(Debug)]
 pub struct Fauna {
     pub species: Vec<FaunaSpecies>,
+    /// The world's substance palette (docs/23) — what bodies are built
+    /// from and what runs in them.
+    pub substances: Vec<Substance>,
     pub pop: Vec<Quantity>,
     cells: usize,
 }
 
-/// Genomes sampled across trait space and climate space — every band of
-/// diet × habitat gets contenders, none is guaranteed to thrive anywhere.
-#[must_use]
-pub fn generate_species(seed: WorldSeed, count: u16) -> Vec<FaunaSpecies> {
-    const T_BINS: [i16; 4] = [-60, 60, 170, 270];
-    (0..count)
-        .map(|k| {
-            let d = |salt: u64| rng::draw(seed, Tick::ZERO, FAUNAGEN, u64::from(k) << 8 | salt);
-            // Stratify trait space: plant-eaters common, omnivores and
-            // flesh-eaters rarer; a water band and a shoreline band exist.
-            let diet_milli = match k % 6 {
-                0 | 1 | 3 => (d(1) % 300) as u16,
-                4 => (350 + d(1) % 300) as u16,
-                _ => (650 + d(1) % 350) as u16,
-            };
-            let water_milli = match k % 12 {
-                8..=11 => (750 + d(2) % 250) as u16,
-                7 => (350 + d(2) % 300) as u16,
-                _ => (d(2) % 250) as u16,
-            };
-            let t_center = T_BINS[k as usize % T_BINS.len()];
-            // Breeding speed falls out of diet: grass breeds mice, meat breeds wolves.
-            let repro_milli = (230 - u64::from(diet_milli) * 14 / 100 + d(5) % 60) as u16;
-            FaunaSpecies {
-                id: k,
-                diet_milli,
-                water_milli,
-                t_opt: t_center + (d(3) % 80) as i16 - 40,
-                t_width: 90 + (d(4) % 110) as i16,
-                m_opt: (40 + (d(6) % 180)) as u8,
-                m_width: (70 + (d(7) % 90)) as u8,
-                repro_milli,
-                edible_milli: (700 + d(8) % 400) as u16,
-            }
-        })
-        .collect()
-}
-
 impl Fauna {
-    /// Generate species and seed their populations across the world.
+    /// Generate the substance palette, the species with their bodies, and
+    /// seed populations across the world.
     #[must_use]
     pub fn genesis(
         seed: WorldSeed,
         fields: &WorldFields,
         flora_density: &[u8],
         eco: &Ecology,
+        bod: &Bodies,
     ) -> Self {
-        let species = generate_species(seed, eco.fauna_species);
+        let substances = anatomy::substances(seed, bod.substances);
+        let species = generate_species(seed, eco.fauna_species, &substances, bod);
         let cells = fields.grid().cells();
         let mut pop = vec![Quantity::ZERO; species.len() * cells];
         for s in &species {
@@ -143,6 +54,7 @@ impl Fauna {
         }
         Self {
             species,
+            substances,
             pop,
             cells,
         }
@@ -180,6 +92,15 @@ impl Fauna {
             total += self.aquatic_at(nb);
         }
         total
+    }
+
+    /// The most numerous species on a tile, for inspection and describes.
+    #[must_use]
+    pub fn top_species_at(&self, tile: usize) -> Option<&FaunaSpecies> {
+        self.species
+            .iter()
+            .filter(|s| self.at(s.id as usize, tile) > Quantity::from_num(2))
+            .max_by_key(|s| self.at(s.id as usize, tile).to_bits())
     }
 
     fn aquatic_at(&self, tile: usize) -> Quantity {
