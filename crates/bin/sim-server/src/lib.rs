@@ -2,6 +2,7 @@
 //! genesis (fields → flora → nations on tiles), then the tick loop with the
 //! directive log as the only external input (docs/14-bands-and-councils.md).
 
+mod initiative;
 mod knowing;
 pub mod registry;
 mod reporting;

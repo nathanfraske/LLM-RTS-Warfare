@@ -12,6 +12,7 @@ mod folk;
 mod frame;
 mod hud;
 mod layers;
+mod lines;
 mod localfolk;
 mod localview;
 mod sky;

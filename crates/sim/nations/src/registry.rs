@@ -11,6 +11,12 @@ pub const POSTURE_CONSOLIDATE: &str = "consolidate";
 pub const POSTURE_STEADY: &str = "steady";
 pub const POSTURE_EXPANSIVE: &str = "expansive";
 
+/// Whether the people may raise buildings on their own need, unbidden —
+/// a lever, because whether they may is the council's to decide.
+pub const BUILDING_INITIATIVE: &str = "building.initiative";
+pub const INITIATIVE_UNBIDDEN: &str = "unbidden";
+pub const INITIATIVE_COUNCIL_ONLY: &str = "council-only";
+
 pub const NAME: &str = "nation.name";
 pub const SETTLE: &str = "band.settle";
 pub const COMMISSION: &str = "works.commission";
@@ -18,26 +24,39 @@ pub const SCOUT: &str = "band.scout";
 
 #[must_use]
 pub fn policy_defs(soc: &Society) -> Vec<PolicyDef> {
-    vec![PolicyDef {
-        key: POSTURE.into(),
-        kind: PolicyType::Choice {
-            options: vec![
-                POSTURE_CONSOLIDATE.into(),
-                POSTURE_STEADY.into(),
-                POSTURE_EXPANSIVE.into(),
-            ],
+    vec![
+        PolicyDef {
+            key: POSTURE.into(),
+            kind: PolicyType::Choice {
+                options: vec![
+                    POSTURE_CONSOLIDATE.into(),
+                    POSTURE_STEADY.into(),
+                    POSTURE_EXPANSIVE.into(),
+                ],
+            },
+            default: PolicyValue::Text(POSTURE_STEADY.into()),
+            cost: soc.cost_stance,
+            summary: "How readily crowded settlements send founders to new tiles.".into(),
         },
-        default: PolicyValue::Text(POSTURE_STEADY.into()),
-        cost: soc.cost_stance,
-        summary: "How readily crowded settlements send founders to new tiles.".into(),
-    }]
+        PolicyDef {
+            key: BUILDING_INITIATIVE.into(),
+            kind: PolicyType::Choice {
+                options: vec![INITIATIVE_UNBIDDEN.into(), INITIATIVE_COUNCIL_ONLY.into()],
+            },
+            default: PolicyValue::Text(INITIATIVE_UNBIDDEN.into()),
+            cost: soc.cost_stance,
+            summary: "Whether the people may raise buildings on their own need, or only by \
+                      council commission."
+                .into(),
+        },
+    ]
 }
 
 #[must_use]
 pub fn action_defs(soc: &Society) -> Vec<ActionDef> {
-    let work_options = structures::FUNCTIONS
+    let emphasis_options = structures::EMPHASES
         .iter()
-        .map(|f| (*f).to_string())
+        .map(|e| (*e).to_string())
         .collect();
     vec![
         ActionDef {
@@ -80,15 +99,15 @@ pub fn action_defs(soc: &Society) -> Vec<ActionDef> {
             key: COMMISSION.into(),
             target: TargetKind::OwnedTile,
             params: vec![ParamDef {
-                name: "work".into(),
+                name: "emphasis".into(),
                 kind: PolicyType::Choice {
-                    options: work_options,
+                    options: emphasis_options,
                 },
             }],
             cost: soc.cost_commission,
-            summary: "Raise a structure for a function — the building itself derives from \
-                      the tile's own ground: field-works richen cultivation, store-houses \
-                      deepen stores, hearth-halls shelter births."
+            summary: "Raise a structure by effort emphasis — what gets built derives from \
+                      the tile's own ground; its room, cover, worked ground, and hearth do \
+                      the rest."
                 .into(),
         },
     ]

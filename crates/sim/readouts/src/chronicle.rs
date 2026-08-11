@@ -92,6 +92,16 @@ fn world_line(e: &Event, id: NationId, world: &WorldNations) -> Option<String> {
             from.0,
             tile.0
         )),
+        Event::PeopleRaised {
+            tick,
+            nation,
+            tile,
+            work,
+        } if *nation == id => Some(format!(
+            "{} — our people raised a {work} on tile {} of their own accord",
+            stamp(*tick),
+            tile.0
+        )),
         Event::WorkCompleted {
             tick,
             nation,

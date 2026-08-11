@@ -140,6 +140,7 @@ impl World {
         let food = self.harvest(tick);
         let delta = self.demography(tick, &food);
         self.movement(tick, &food);
+        self.initiative(tick);
         self.refresh_home_knowledge(tick);
         self.log.push(Event::MonthClosed {
             tick,

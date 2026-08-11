@@ -108,6 +108,14 @@ pub enum Event {
         tile: TileId,
         reach: u32,
     },
+    /// The people raised a building on their own need (docs/30) — no
+    /// decree, no mandate: room or shelter wanted, and built.
+    PeopleRaised {
+        tick: Tick,
+        nation: NationId,
+        tile: TileId,
+        work: String,
+    },
     /// A shake brought a finished work down.
     WorkToppled {
         tick: Tick,

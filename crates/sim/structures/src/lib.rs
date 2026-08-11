@@ -1,117 +1,84 @@
-//! Structures as composition (docs/30-structures.md): a building is a
-//! *function* realized in *materials bid from the local ground*. The
-//! authored floor is the function vocabulary and the material sources;
-//! every actual building — its name, cost, effect, and strength — is
-//! derived from the tile it stands on. No building list exists.
+//! Structures as composition (docs/30-structures.md): a building is an
+//! **allocation of effort over physical aspect space**, realized in
+//! materials bid from the local ground. Nothing in the sim dispatches on
+//! a building's name or kind: effects read the aspect numbers, and the
+//! nouns ("long-store", "field-works") are describe-words over the space,
+//! exactly as "omnivore" and "loam" are. The authored floor is the aspect
+//! vocabulary — the physical ways a built thing couples to the world's
+//! existing state — plus the material sources. Everything else derives.
+
+mod materials;
+
+pub use materials::{Material, local_materials};
 
 use regolith::Regolith;
 use tuning::Structures;
 use world_map::WorldFields;
 
-/// The authored function vocabulary — effect channels, not building names.
-pub const FUNCTIONS: [&str; 3] = ["field-works", "store-house", "hearth-hall"];
-pub const FUNCTION_SUMMARIES: [&str; 3] = [
-    "Cleared, worked ground that multiplies cultivation.",
-    "Held stores against the lean months; capacity from the walls.",
-    "Shelter for families; births rise under a sound roof.",
-];
-
-pub const FIELD_WORKS: usize = 0;
-pub const STORE_HOUSE: usize = 1;
-pub const HEARTH_HALL: usize = 2;
-
-/// A material as bid from the tile: what it is called and what it can do.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Material {
-    pub word: &'static str,
-    pub hardness: u16,
-    pub binding: u16,
-    pub mass: u16,
-    /// How much of it the tile actually offers, 0..=255.
-    pub supply: u8,
+/// The physical couplings a built thing can have (docs/30 §1). Closed
+/// over current sim state; new couplings (walls against foes, height for
+/// seeing) are registrations when their state exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Aspects {
+    /// Kept off the sky: roof coverage and soundness.
+    pub cover_milli: u16,
+    /// Held apart from the world: wall enclosure.
+    pub enclosure_milli: u16,
+    /// Room to hold things: floor area under sound walls.
+    pub capacity_milli: u16,
+    /// Ground cleared, drained, and made ready for working.
+    pub worked_ground_milli: u16,
+    /// Heat held against the cold.
+    pub hearth_milli: u16,
 }
 
-/// A derived building: function, materials, and everything they imply.
+/// The commissioning vocabulary: effort emphases — pointers into aspect
+/// space, not building types. What each one *builds* depends entirely on
+/// the ground it is built from.
+pub const EMPHASES: [&str; 5] = [
+    "roomy",
+    "sheltering",
+    "ground-working",
+    "hearth-warm",
+    "balanced",
+];
+pub const EMPHASIS_SUMMARIES: [&str; 5] = [
+    "Effort into floor and walls: room to hold stores against the year.",
+    "Effort into roof and walls: cover for people and goods.",
+    "Effort into the ground itself: cleared, worked land for cultivation.",
+    "Effort into hearth and enclosure: warmth held against the cold.",
+    "Effort spread even: a little of everything.",
+];
+
+/// Effort weights per emphasis: (area, walls, roof, groundwork, hearth),
+/// summing to 100.
+const ALLOCATIONS: [[u16; 5]; 5] = [
+    [40, 25, 20, 5, 10],
+    [15, 30, 35, 5, 15],
+    [30, 5, 5, 55, 5],
+    [15, 25, 25, 5, 30],
+    [20, 20, 20, 20, 20],
+];
+
+/// A derived building: materials, aspects, and everything they imply.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Design {
-    pub function: usize,
     pub wall: Material,
     pub roof: Material,
     /// Ground quality under the footing, 0..=1000.
     pub footing_milli: u16,
+    pub aspects: Aspects,
     pub name: String,
-    /// Function-specific effect strength, 0..=1000.
-    pub effect_milli: u16,
     /// Design integrity: what the built thing can withstand, 0..=1000.
     pub integrity_milli: u16,
     pub months: u8,
 }
 
-/// The materials this tile offers, in deterministic source order:
-/// earth, stone, timber, thatch.
-#[must_use]
-pub fn local_materials(
-    ground: &Regolith,
-    rocks: &geology::Geology,
-    flora_live: &[u8],
-    tile: usize,
-) -> Vec<Material> {
-    let bedrock = &rocks.minerals[rocks.bedrock[tile] as usize];
-    let mut out = Vec::new();
-    let fines = ground.fines[tile];
-    if fines > 30 {
-        out.push(Material {
-            word: if fines > 100 {
-                "clay-walled"
-            } else {
-                "mud-walled"
-            },
-            hardness: 180 + u16::from(fines),
-            binding: 640,
-            mass: 420,
-            supply: fines,
-        });
-    }
-    let stone = ground.coarse[tile].saturating_add(ground.rock[tile] / 2);
-    if stone > 50 {
-        out.push(Material {
-            word: "stone-walled",
-            hardness: 400 + bedrock.hardness_milli / 3,
-            binding: 300,
-            mass: 900,
-            supply: stone,
-        });
-    }
-    if flora_live[tile] > 110 {
-        out.push(Material {
-            word: "timber-walled",
-            hardness: 340,
-            binding: 560,
-            mass: 320,
-            supply: flora_live[tile],
-        });
-    }
-    if flora_live[tile] > 40 || ground.organic[tile] > 40 {
-        out.push(Material {
-            word: if ground.organic[tile] > 70 {
-                "turf-roofed"
-            } else {
-                "thatch-roofed"
-            },
-            hardness: 80,
-            binding: 320,
-            mass: 110,
-            supply: flora_live[tile].max(ground.organic[tile]),
-        });
-    }
-    out
-}
-
-/// Derive the building this tile would raise for a function. Pure and
-/// deterministic: the same ground always designs the same building.
+/// Derive the building this tile would raise under an emphasis. Pure and
+/// deterministic: the same ground and intent always design the same thing.
 #[must_use]
 pub fn design(
-    function: usize,
+    emphasis: usize,
     ground: &Regolith,
     rocks: &geology::Geology,
     flora_live: &[u8],
@@ -119,6 +86,9 @@ pub fn design(
     tile: usize,
     st: &Structures,
 ) -> Design {
+    let alloc = ALLOCATIONS[emphasis % EMPHASES.len()];
+    let (area, walls, roof_effort, groundwork, hearth_effort) =
+        (alloc[0], alloc[1], alloc[2], alloc[3], alloc[4]);
     let materials = local_materials(ground, rocks, flora_live, tile);
     let fallback = Material {
         word: "earth-walled",
@@ -127,8 +97,6 @@ pub fn design(
         mass: 350,
         supply: 40,
     };
-    // Wall: the strongest thing standing about; roof: the lightest thing
-    // that still binds.
     let wall = materials
         .iter()
         .max_by_key(|m| u32::from(m.binding) + u32::from(m.hardness) / 2 + u32::from(m.supply) * 2)
@@ -147,63 +115,77 @@ pub fn design(
             supply: 30,
         });
     // The footing meets the actual ground: rock stands, sand leans.
-    let footing_milli = u16::from(ground.rock[tile]) * 2
+    let solid = u16::from(ground.rock[tile]) * 2
         + u16::from(ground.coarse[tile]) * 2
-        + u16::from(ground.fines[tile])
-        - u16::from(ground.sand[tile]).min(
-            u16::from(ground.rock[tile]) * 2
-                + u16::from(ground.coarse[tile]) * 2
-                + u16::from(ground.fines[tile]),
-        );
-    let footing_milli = footing_milli.min(1000);
+        + u16::from(ground.fines[tile]);
+    let footing_milli = solid.saturating_sub(u16::from(ground.sand[tile])).min(1000);
 
-    let effect_milli = match function {
-        FIELD_WORKS => 400 + u16::from(ground.fines[tile]).min(300) + wall.binding / 4,
-        STORE_HOUSE => 250 + wall.hardness / 2 + wall.mass / 4,
-        _ => 250 + roof.binding + wall.binding / 3,
-    }
-    .min(1000);
+    // Every aspect is effort × what the materials make of it.
+    let enclosure = (walls * (wall.binding + wall.hardness / 2) / 60).min(1000);
+    let aspects = Aspects {
+        cover_milli: (roof_effort * roof.binding / 12).min(1000),
+        enclosure_milli: enclosure,
+        capacity_milli: (area * (500 + enclosure / 2) / 45).min(1000),
+        worked_ground_milli: (groundwork * (700 + u16::from(ground.fines[tile]).min(300)) / 60)
+            .min(1000),
+        hearth_milli: (hearth_effort * (400 + enclosure / 2 + wall.mass / 4) / 35).min(1000),
+    };
 
     let integrity_milli =
         (wall.binding * 4 / 10 + wall.hardness * 3 / 10 + roof.binding / 10 + footing_milli / 5)
+            .saturating_sub(area / 2)
             .min(1000);
 
     let months = u8::try_from(
         u32::from(st.base_months)
-            + u32::from(wall.mass) / u32::from(st.mass_months_divisor).max(1)
+            + u32::from(wall.mass) * u32::from(walls + area)
+                / (u32::from(st.mass_months_divisor).max(1) * 40)
             + u32::from(wall.hardness) / u32::from(st.hardness_months_divisor).max(1),
     )
-    .unwrap_or(u8::MAX);
+    .unwrap_or(u8::MAX)
+    .max(1);
 
-    let name = if function == FIELD_WORKS {
-        // Fields are ground, not rooms: named for the earth they work.
-        format!("{} field-works", earth_word(ground, tile))
-    } else {
-        format!("{} {} {}", wall.word, roof.word, FUNCTIONS[function])
-    };
-
+    let name = name_of(&aspects, wall, roof, ground, tile);
     let _ = fields; // slope-aware footings arrive with local-map footprints
     Design {
-        function,
         wall,
         roof,
         footing_milli,
+        aspects,
         name,
-        effect_milli,
         integrity_milli,
         months,
     }
 }
 
-fn earth_word(ground: &Regolith, tile: usize) -> &'static str {
-    if ground.organic[tile] > 80 {
-        "loam-bedded"
-    } else if ground.fines[tile] > 90 {
-        "silt-bedded"
-    } else if ground.sand[tile] > 110 {
-        "sand-scratched"
+/// The dominant aspect names the thing — describe-words over aspect
+/// space, never types the sim dispatches on.
+fn name_of(a: &Aspects, wall: Material, roof: Material, ground: &Regolith, tile: usize) -> String {
+    let ranked = [
+        (a.capacity_milli, "long-store"),
+        (a.cover_milli, "roof-hall"),
+        (a.worked_ground_milli, "field-works"),
+        (a.hearth_milli, "hearth-house"),
+        (a.enclosure_milli, "stead"),
+    ];
+    let (_, noun) = ranked
+        .iter()
+        .max_by_key(|(v, _)| *v)
+        .copied()
+        .expect("five aspects");
+    if noun == "field-works" {
+        let earth = if ground.organic[tile] > 80 {
+            "loam-bedded"
+        } else if ground.fines[tile] > 90 {
+            "silt-bedded"
+        } else if ground.sand[tile] > 110 {
+            "sand-scratched"
+        } else {
+            "stone-picked"
+        };
+        format!("{earth} field-works")
     } else {
-        "stone-picked"
+        format!("{} {} {noun}", wall.word, roof.word)
     }
 }
 
@@ -213,7 +195,7 @@ mod tests {
     use sim_events::WorldSeed;
 
     #[test]
-    fn different_ground_designs_different_buildings() {
+    fn ground_and_intent_design_the_building_never_a_type() {
         let st = Structures::default();
         let deep = tuning::Deep::default();
         let g = tuning::Ground::default();
@@ -228,26 +210,34 @@ mod tests {
         let land: Vec<usize> = (0..fields.grid().cells())
             .filter(|&t| fields.elevation[t] >= 0)
             .collect();
-        let designs: Vec<Design> = land
+
+        // Same intent, different ground: different architecture.
+        let names: std::collections::BTreeSet<String> = land
             .iter()
             .step_by(7)
             .take(400)
-            .map(|&t| design(STORE_HOUSE, &ground, &rocks, &flora, &fields, t, &st))
+            .map(|&t| design(0, &ground, &rocks, &flora, &fields, t, &st).name)
             .collect();
-        let names: std::collections::BTreeSet<&str> =
-            designs.iter().map(|d| d.name.as_str()).collect();
         assert!(
             names.len() > 1,
             "one world must raise more than one architecture: {names:?}"
         );
-        for d in &designs {
-            assert!(d.name.contains("store-house"));
+
+        // Same ground, different intent: different aspects dominate.
+        let t = land[0];
+        let roomy = design(0, &ground, &rocks, &flora, &fields, t, &st);
+        let sheltering = design(1, &ground, &rocks, &flora, &fields, t, &st);
+        let worked = design(2, &ground, &rocks, &flora, &fields, t, &st);
+        assert!(roomy.aspects.capacity_milli > sheltering.aspects.capacity_milli);
+        assert!(sheltering.aspects.cover_milli > roomy.aspects.cover_milli);
+        assert!(worked.aspects.worked_ground_milli > roomy.aspects.worked_ground_milli);
+        assert!(worked.name.contains("field-works"));
+
+        // Determinism.
+        let again = design(0, &ground, &rocks, &flora, &fields, t, &st);
+        assert_eq!(roomy, again, "same ground, same intent, same building");
+        for d in [&roomy, &sheltering, &worked] {
             assert!(d.integrity_milli > 0 && d.months > 0);
-            let again = design(STORE_HOUSE, &ground, &rocks, &flora, &fields, land[0], &st);
-            let _ = again;
         }
-        let a = design(STORE_HOUSE, &ground, &rocks, &flora, &fields, land[0], &st);
-        let b = design(STORE_HOUSE, &ground, &rocks, &flora, &fields, land[0], &st);
-        assert_eq!(a, b, "same ground, same building");
     }
 }

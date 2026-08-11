@@ -3076,6 +3076,7 @@ dependencies = [
  "sim-clock",
  "sim-events",
  "species",
+ "structures",
  "tuning",
  "wildfire",
  "world-map",

@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use sim_events::{Event, EventLog};
-use structures::{Design, FIELD_WORKS, HEARTH_HALL, STORE_HOUSE};
+use structures::Design;
 use world_schema::{NationId, Quantity, Tick, TileId};
 
 /// A standing building: its design and what it has left to withstand.
@@ -30,15 +30,10 @@ pub struct Works {
 }
 
 impl Works {
+    /// Everything standing or rising here — the tile's building load.
     #[must_use]
-    pub fn has_or_building(&self, tile: u32, function: usize) -> bool {
-        self.done
-            .get(&tile)
-            .is_some_and(|v| v.iter().any(|b| b.design.function == function))
-            || self
-                .building
-                .get(&tile)
-                .is_some_and(|v| v.iter().any(|w| w.design.function == function))
+    pub fn load(&self, tile: u32) -> usize {
+        self.done.get(&tile).map_or(0, Vec::len) + self.building.get(&tile).map_or(0, Vec::len)
     }
 
     pub fn commission(&mut self, tile: u32, design: Design) {
@@ -68,38 +63,36 @@ impl Works {
             .collect()
     }
 
-    fn best_effect(&self, tile: u32, function: usize) -> u16 {
-        self.completed(tile)
-            .iter()
-            .filter(|b| b.design.function == function)
-            .map(|b| b.design.effect_milli)
-            .max()
-            .unwrap_or(0)
+    /// The strongest reading of one aspect across everything standing.
+    fn best_aspect(&self, tile: u32, read: impl Fn(&Building) -> u16) -> u16 {
+        self.completed(tile).iter().map(read).max().unwrap_or(0)
     }
 
-    /// Field-works multiply cultivation by what their ground and walls earn.
+    /// Worked ground multiplies cultivation — whatever building carries it.
     #[must_use]
     pub fn cultivation_mult(&self, tile: u32, st: &tuning::Structures) -> Quantity {
         Quantity::ONE
-            + Quantity::from_num(self.best_effect(tile, FIELD_WORKS))
+            + Quantity::from_num(self.best_aspect(tile, |b| b.design.aspects.worked_ground_milli))
                 * Quantity::from_num(st.field_mult_permille)
                 / Quantity::from_num(1_000_000)
     }
 
-    /// Store capacity the standing store-houses add over the base.
+    /// Capacity holds stores over the base — whatever building has room.
     #[must_use]
     pub fn store_bonus(&self, tile: u32, st: &tuning::Structures) -> Quantity {
-        Quantity::from_num(self.best_effect(tile, STORE_HOUSE))
+        Quantity::from_num(self.best_aspect(tile, |b| b.design.aspects.capacity_milli))
             * Quantity::from_num(st.store_capacity)
             / Quantity::from_num(1000)
     }
 
-    /// Hearth-halls shelter families.
+    /// Cover and hearth shelter families — whatever building offers them.
     #[must_use]
     pub fn birth_mult(&self, tile: u32, st: &tuning::Structures) -> Quantity {
+        let shelter = self.best_aspect(tile, |b| {
+            b.design.aspects.cover_milli / 2 + b.design.aspects.hearth_milli / 2
+        });
         Quantity::ONE
-            + Quantity::from_num(self.best_effect(tile, HEARTH_HALL))
-                * Quantity::from_num(st.shelter_permille)
+            + Quantity::from_num(shelter) * Quantity::from_num(st.shelter_permille)
                 / Quantity::from_num(1_000_000)
     }
 

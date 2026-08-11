@@ -121,7 +121,8 @@ fn the_charter_renders_the_live_registry() {
         "nation.name",
         "band.settle",
         "works.commission",
-        "field-works / store-house / hearth-hall",
+        "building.initiative",
+        "roomy / sheltering / ground-working / hearth-warm / balanced",
     ] {
         assert!(report.contains(key), "charter must list {key}");
     }

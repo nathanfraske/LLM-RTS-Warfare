@@ -60,6 +60,7 @@ pub fn apply(
         reg,
         known,
         &tun.exploration,
+        tun.structures.max_per_tile,
     ) {
         Ok(base) => base,
         Err(reason) => {
@@ -108,6 +109,7 @@ pub fn apply(
 }
 
 /// Registry + in-world legality; returns the base mandate cost on success.
+#[allow(clippy::too_many_arguments)]
 fn validate(
     directive: &Directive,
     ni: usize,
@@ -116,6 +118,7 @@ fn validate(
     reg: &Registry,
     known: &WorldKnowledge,
     exp: &tuning::Exploration,
+    max_per_tile: u8,
 ) -> Result<f64, String> {
     match directive {
         Directive::Set { key, value } => {
@@ -136,14 +139,9 @@ fn validate(
             check_params(def, params)?;
             let tile = check_target(def.target, *target, ni, world, fields)?;
             if action == registry::COMMISSION {
-                let work = params["work"].as_text().expect("checked as choice");
-                let function = structures::FUNCTIONS
-                    .iter()
-                    .position(|f| *f == work)
-                    .expect("checked against options");
                 let t = tile.expect("owned-tile target checked");
-                if world.works.has_or_building(t, function) {
-                    return Err(format!("a {work} already stands or is being built there"));
+                if world.works.load(t) >= usize::from(max_per_tile) {
+                    return Err("the tile already carries all it can".into());
                 }
             }
             if action == registry::SETTLE {
@@ -205,14 +203,14 @@ fn enact(
         }
         registry::COMMISSION => {
             let tile = target.expect("owned-tile target checked");
-            let work = params["work"].as_text().expect("checked as choice");
-            let function = structures::FUNCTIONS
+            let emphasis_word = params["emphasis"].as_text().expect("checked as choice");
+            let emphasis = structures::EMPHASES
                 .iter()
-                .position(|f| *f == work)
+                .position(|e| *e == emphasis_word)
                 .expect("checked against options");
             // The building derives from the ground it will stand on.
             let design = structures::design(
-                function,
+                emphasis,
                 ground,
                 rocks,
                 flora_live,

@@ -26,6 +26,15 @@ pub struct Structures {
     pub ash_load: u16,
     /// Roof mass below which ash and fire find easy purchase.
     pub light_roof_mass: u16,
+    /// Buildings a tile can carry, standing or rising.
+    pub max_per_tile: u8,
+    /// Stores at this share of capacity move the people to raise room,
+    /// per mille.
+    pub initiative_store_permille: u16,
+    /// People enough to raise a roof on their own.
+    pub initiative_pop: u16,
+    /// Establishment share that asks for worked ground, per mille.
+    pub initiative_establish_permille: u16,
 }
 
 impl Default for Structures {
@@ -41,6 +50,10 @@ impl Default for Structures {
             fire_scorch: 350,
             ash_load: 260,
             light_roof_mass: 300,
+            max_per_tile: 3,
+            initiative_store_permille: 800,
+            initiative_pop: 150,
+            initiative_establish_permille: 400,
         }
     }
 }
