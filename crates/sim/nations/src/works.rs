@@ -97,6 +97,16 @@ impl Works {
         self.completed(tile).iter().any(|w| w == GRANARY)
     }
 
+    /// A shake brings the newest finished work down; returns what fell.
+    pub fn topple(&mut self, tile: u32) -> Option<String> {
+        let list = self.done.get_mut(&tile)?;
+        let fallen = list.pop();
+        if list.is_empty() {
+            self.done.remove(&tile);
+        }
+        fallen
+    }
+
     /// Advance construction one month; completions become world events.
     pub fn tick_month(&mut self, owner: &[Option<NationId>], tick: Tick, log: &mut EventLog) {
         let mut finished: Vec<(u32, String)> = Vec::new();

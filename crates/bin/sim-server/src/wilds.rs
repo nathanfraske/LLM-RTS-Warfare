@@ -60,30 +60,101 @@ impl World {
                 for si in 0..self.fauna.species.len() {
                     self.fauna.set(si, tile, Quantity::ZERO);
                 }
-                if let Some(owner) = self.nations.owner[tile] {
-                    let species = self
-                        .nations
-                        .nations
-                        .iter()
-                        .find(|n| n.id == owner)
-                        .map(|n| n.species);
-                    if let Some(species) = species {
-                        let key = cohorts::CohortKey {
-                            tile: TileId(t),
-                            species,
-                        };
-                        let pop = self.cohorts.population_of(key);
-                        let taken = pop * Quantity::from_num(self.tuning.deep.lava_cull_permille)
-                            / Quantity::from_num(1000);
-                        let _ = self.cohorts.remove(key, taken);
-                    }
-                }
+                self.cull_settled(t, self.tuning.deep.lava_cull_permille);
+            }
+            // The ejecta: ash rides the wind far past the lava, smothering
+            // the green by heaviness and laying fines the weathering will
+            // turn to farmland.
+            let ash = geology::fire::ash_fall(
+                &self.genesis.fields,
+                vent,
+                strength,
+                self.tuning.deep.ash_radius,
+            );
+            for &(t, heaviness) in &ash {
+                let tile = t as usize;
+                let smother = u8::try_from(
+                    u32::from(self.tuning.deep.ash_smother) * u32::from(heaviness) / 255,
+                )
+                .expect("bounded");
+                self.flora_live[tile] = self.flora_live[tile].saturating_sub(smother);
+                self.regolith
+                    .ash_fall(tile, heaviness, self.tuning.deep.ash_fines);
             }
             self.log.push(Event::VolcanoErupted {
                 tick,
                 tile: TileId(vent),
                 reach: u32::try_from(path.len()).expect("short path"),
+                ash_tiles: u32::try_from(ash.len()).expect("bounded footprint"),
             });
+        }
+        self.quakes(tick, month);
+    }
+
+    /// The faults slip on their own clocks (docs/29): the shake topples
+    /// finished works, takes a small toll of the settled, and breaks the
+    /// scree loose on every slope it touches.
+    fn quakes(&mut self, tick: Tick, month: u64) {
+        let due = geology::fire::due_quakes(&self.genesis.geology, month);
+        for epicenter in due {
+            let radius = i64::from(self.tuning.deep.quake_radius);
+            let (ex, ey) = self.genesis.fields.grid().xy(epicenter as usize);
+            let size = i64::from(self.genesis.fields.size);
+            let mut shaken = 0u32;
+            for dy in -radius..=radius {
+                for dx in -radius..=radius {
+                    let x = i64::from(ex) + dx;
+                    let y = i64::from(ey) + dy;
+                    if x < 0 || y < 0 || x >= size || y >= size {
+                        continue;
+                    }
+                    let tile = (y as usize) * self.genesis.fields.size as usize + x as usize;
+                    if self.genesis.fields.elevation[tile] < 0 {
+                        continue;
+                    }
+                    shaken += 1;
+                    self.regolith
+                        .shake(&self.genesis.fields, tile, self.tuning.deep.quake_slide);
+                    let t32 = u32::try_from(tile).expect("tile fits");
+                    self.cull_settled(t32, self.tuning.deep.quake_cull_permille);
+                    if let Some(owner) = self.nations.owner[tile]
+                        && let Some(work) = self.nations.works.topple(t32)
+                    {
+                        self.log.push(Event::WorkToppled {
+                            tick,
+                            nation: owner,
+                            tile: TileId(t32),
+                            work,
+                        });
+                    }
+                }
+            }
+            self.log.push(Event::Earthquake {
+                tick,
+                tile: TileId(epicenter),
+                reach: shaken,
+            });
+        }
+    }
+
+    /// A calamity's toll on whoever holds the tile.
+    fn cull_settled(&mut self, tile: u32, permille: u16) {
+        if let Some(owner) = self.nations.owner[tile as usize] {
+            let species = self
+                .nations
+                .nations
+                .iter()
+                .find(|n| n.id == owner)
+                .map(|n| n.species);
+            if let Some(species) = species {
+                let key = cohorts::CohortKey {
+                    tile: TileId(tile),
+                    species,
+                };
+                let pop = self.cohorts.population_of(key);
+                let taken = pop * Quantity::from_num(permille) / Quantity::from_num(1000);
+                let _ = self.cohorts.remove(key, taken);
+            }
         }
     }
 }

@@ -50,6 +50,7 @@ fn stamp(tick: Tick) -> String {
 pub fn describe(event: &Event, world: &World) -> Option<Line> {
     overseer_line(event, world)
         .or_else(|| scout_line(event, world))
+        .or_else(|| calamity_line(event, world))
         .or_else(|| worldly_line(event, world))
 }
 
@@ -236,12 +237,49 @@ fn worldly_line(event: &Event, world: &World) -> Option<Line> {
             format!("{} · hunger in tile {}", stamp(*tick), tile.0),
             Kind::Alarm,
         ),
-        Event::VolcanoErupted { tick, tile, reach } => (
+        _ => return None,
+    };
+    Some(Line { text, kind })
+}
+
+/// The world's violence: fire from below and the shaking earth.
+fn calamity_line(event: &Event, world: &World) -> Option<Line> {
+    let (text, kind) = match event {
+        Event::VolcanoErupted {
+            tick,
+            tile,
+            reach,
+            ash_tiles,
+        } => (
             format!(
-                "{} · the mountain at tile {} erupts — lava runs {} tiles",
+                "{} · the mountain at tile {} erupts — lava runs {} tiles, ash falls on {}",
+                stamp(*tick),
+                tile.0,
+                reach,
+                ash_tiles
+            ),
+            Kind::Alarm,
+        ),
+        Event::Earthquake { tick, tile, reach } => (
+            format!(
+                "{} · the earth shakes at tile {} — {} tiles rattled",
                 stamp(*tick),
                 tile.0,
                 reach
+            ),
+            Kind::Alarm,
+        ),
+        Event::WorkToppled {
+            tick,
+            nation,
+            tile,
+            work,
+        } => (
+            format!(
+                "{} · the {work} of {} at tile {} falls in the shaking",
+                stamp(*tick),
+                nation_name(world, *nation),
+                tile.0
             ),
             Kind::Alarm,
         ),

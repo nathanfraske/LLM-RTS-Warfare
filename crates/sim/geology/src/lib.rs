@@ -43,6 +43,8 @@ pub struct Geology {
     pub vents: Vec<u8>,
     /// Eruption schedule per vent tile: (tile, period months, phase).
     pub schedules: Vec<(u32, u16, u16)>,
+    /// Quake schedule per epicenter: (fault tile, period months, phase).
+    pub quake_clocks: Vec<(u32, u16, u16)>,
 }
 
 impl Geology {

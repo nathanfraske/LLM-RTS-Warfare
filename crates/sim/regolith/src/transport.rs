@@ -96,6 +96,29 @@ pub(crate) fn slides(ground: &mut Regolith, fields: &WorldFields, g: &Ground) {
     }
 }
 
+/// Ash settling (docs/29): the burial rules, entered from outside.
+pub(crate) fn settle_ash(ground: &mut Regolith, tile: usize, arrived: u8, heavy: bool) {
+    settle_burial(ground, tile, arrived, false, heavy);
+}
+
+/// A quake shakes the slope loose (docs/29): a chunk of coarse and rock
+/// goes downtree regardless of the usual slope threshold.
+pub(crate) fn shake_loose(ground: &mut Regolith, fields: &WorldFields, tile: usize, strength: u8) {
+    if fields.elevation[tile] < 0 {
+        return;
+    }
+    let target = fields.drains_to[tile];
+    if target == u32::MAX || fields.elevation[target as usize] < 0 {
+        return;
+    }
+    let target = target as usize;
+    let moved = strength.min(ground.coarse[tile]);
+    ground.coarse[tile] -= moved;
+    ground.rock[tile] = ground.rock[tile].saturating_add(moved);
+    ground.coarse[target] = ground.coarse[target].saturating_add(moved);
+    settle_burial(ground, target, moved, true, true);
+}
+
 /// Keep a receiving column at its fixed total: arriving material displaces
 /// the largest mineral part. `displace_fines` is false when fines are what
 /// arrived; `bury_soil` lets rubble and sand take the living soil at the

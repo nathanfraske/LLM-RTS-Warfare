@@ -44,6 +44,92 @@ pub fn terrain_image(world: &World) -> ColorImage {
     ColorImage::from_rgb([size, size], &rgb)
 }
 
+/// One slice of the underground (docs/29, the layer camera): bedrock in
+/// its mineral's color, veins glinting where their depth is within the
+/// slice, caves as hollows, faults as cracks, vents as fire.
+#[must_use]
+pub fn underground_image(world: &World, band: u8) -> ColorImage {
+    let size = world.genesis.fields.size as usize;
+    let geo = &world.genesis.geology;
+    let vein_depth_cap = if band == 1 { 160 } else { 255 };
+    let mut rgb = Vec::with_capacity(size * size * 3);
+    for i in 0..size * size {
+        let (mut red, mut green, mut blue) = if world.genesis.fields.elevation[i] < 0 {
+            (12, 16, 26)
+        } else {
+            mineral_color(&geo.minerals[geo.bedrock[i] as usize])
+        };
+        if world.genesis.fields.elevation[i] >= 0 {
+            // Deeper slices run darker: the light is farther away.
+            if band == 2 {
+                red = red * 3 / 5;
+                green = green * 3 / 5;
+                blue = blue * 3 / 5;
+            }
+            if geo.caves[i] > 0 && band == 1 {
+                let k = u32::from(geo.caves[i]).min(200);
+                red = blend(red, 8, k);
+                green = blend(green, 8, k);
+                blue = blend(blue, 12, k);
+            }
+            if geo.faults[i] {
+                red = blend(red, 70, 110);
+                green = blend(green, 40, 110);
+                blue = blend(blue, 34, 110);
+            }
+            if let Some(vein) = geo.veins[i]
+                && vein.depth <= vein_depth_cap
+            {
+                let m = &geo.minerals[vein.mineral as usize];
+                let (vr, vg, vb) = vein_glint(m);
+                let k = u32::from(vein.richness).min(230);
+                red = blend(red, vr, k);
+                green = blend(green, vg, k);
+                blue = blend(blue, vb, k);
+            }
+            if geo.vents[i] > 0 {
+                red = 235;
+                green = 96;
+                blue = 30;
+            }
+        }
+        rgb.extend_from_slice(&[red, green, blue]);
+    }
+    ColorImage::from_rgb([size, size], &rgb)
+}
+
+/// A mineral's stone color, derived from its axes: hardness sets the gray,
+/// solubility pales it, energy blackens it toward the burning strata.
+fn mineral_color(m: &geology::Mineral) -> (u8, u8, u8) {
+    let gray = 84 + (u32::from(m.hardness_milli) * 70 / 1000) as u8;
+    let mut red = gray;
+    let mut green = gray;
+    let mut blue = gray + 6;
+    if m.solubility_milli > 400 {
+        let pale = u32::from(m.solubility_milli - 400) / 3;
+        red = blend(red, 224, pale);
+        green = blend(green, 214, pale);
+        blue = blend(blue, 182, pale);
+    }
+    if m.energy_milli > 400 {
+        let coal = u32::from(m.energy_milli - 400) / 2;
+        red = blend(red, 30, coal);
+        green = blend(green, 26, coal);
+        blue = blend(blue, 24, coal);
+    }
+    (red, green, blue)
+}
+
+/// The glint a vein shows: warmer and brighter the more metal it carries.
+fn vein_glint(m: &geology::Mineral) -> (u8, u8, u8) {
+    let metal = u32::from(m.metal_milli);
+    (
+        u8::try_from((150 + metal * 100 / 1000).min(255)).expect("bounded"),
+        u8::try_from((120 + metal * 90 / 1000).min(255)).expect("bounded"),
+        u8::try_from((60 + metal * 40 / 1000).min(255)).expect("bounded"),
+    )
+}
+
 /// The regolith's own color: a weighted blend of what it is made of.
 fn ground_color(world: &World, i: usize) -> (u8, u8, u8) {
     let reg = &world.regolith;

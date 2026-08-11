@@ -163,6 +163,26 @@ fn calamity_line(e: &Event, id: NationId, world: &WorldNations) -> Option<String
                 tile.0
             ))
         }
+        Event::Earthquake { tick, tile, .. }
+            if world.owner[tile.0 as usize] == Some(id)
+                || world.owned_tiles(id).any(|t| t.0.abs_diff(tile.0) < 600) =>
+        {
+            Some(format!(
+                "{} — the earth shook beneath tile {}",
+                stamp(*tick),
+                tile.0
+            ))
+        }
+        Event::WorkToppled {
+            tick,
+            nation,
+            tile,
+            work,
+        } if *nation == id => Some(format!(
+            "{} — our {work} on tile {} fell in the shaking",
+            stamp(*tick),
+            tile.0
+        )),
         Event::Famine {
             tick,
             tile,

@@ -1336,6 +1336,7 @@ dependencies = [
 name = "geology"
 version = "0.0.1"
 dependencies = [
+ "climate",
  "sim-events",
  "tuning",
  "world-map",
@@ -3635,6 +3636,7 @@ dependencies = [
  "economy",
  "eframe",
  "fauna",
+ "geology",
  "local-map",
  "map-export",
  "nations",

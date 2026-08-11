@@ -114,6 +114,25 @@ impl Regolith {
         self.fines[tile] = self.fines[tile].saturating_add(wear);
     }
 
+    /// Ash settles on the column: fines arrive, scaled by heaviness.
+    /// Light ash slips into the mineral ground and enriches; heavy ash
+    /// near the vent buries even the living soil.
+    pub fn ash_fall(&mut self, tile: usize, heaviness: u8, ash_fines: u8) {
+        let amount =
+            u8::try_from(u32::from(ash_fines) * u32::from(heaviness) / 255).expect("bounded");
+        if amount == 0 {
+            return;
+        }
+        self.fines[tile] = self.fines[tile].saturating_add(amount);
+        transport::settle_ash(self, tile, amount, heaviness > 170);
+    }
+
+    /// A shake breaks the slope: coarse and rock shed downtree at once,
+    /// slope threshold be damned.
+    pub fn shake(&mut self, fields: &WorldFields, tile: usize, strength: u8) {
+        transport::shake_loose(self, fields, tile, strength);
+    }
+
     /// A lava run or rockfall buries the column: everything becomes
     /// fresh rock, for the weathering rules to work back down.
     pub fn bury_in_rock(&mut self, tile: usize) {

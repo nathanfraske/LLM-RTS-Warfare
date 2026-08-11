@@ -99,6 +99,27 @@ pub(crate) fn compile(
     }
     schedules.sort_unstable();
 
+    // Quakes: epicenters seeded along the faults, each with its own clock.
+    let fault_tiles: Vec<usize> = (0..cells)
+        .filter(|&t| faults[t] && fields.elevation[t] >= 0)
+        .collect();
+    let mut quake_clocks = Vec::new();
+    if !fault_tiles.is_empty() {
+        for q in 0..deep.quakes {
+            let tile = fault_tiles[usize::try_from(draw(seed, 0xA000 | u64::from(q))).unwrap_or(0)
+                % fault_tiles.len()];
+            let span = u64::from(deep.quake_max_months - deep.quake_min_months).max(1);
+            let period = u16::try_from(
+                u64::from(deep.quake_min_months) + draw(seed, 0xB000 | u64::from(q)) % span,
+            )
+            .expect("bounded");
+            let phase = u16::try_from(draw(seed, 0xC000 | u64::from(q)) % u64::from(period.max(1)))
+                .expect("bounded");
+            quake_clocks.push((tile as u32, period, phase));
+        }
+    }
+    quake_clocks.sort_unstable();
+
     Geology {
         minerals: minerals.to_vec(),
         bedrock,
@@ -107,6 +128,7 @@ pub(crate) fn compile(
         caves,
         vents,
         schedules,
+        quake_clocks,
     }
 }
 

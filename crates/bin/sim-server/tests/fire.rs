@@ -24,7 +24,12 @@ fn volcanoes_erupt_and_the_world_carries_on() {
         .log
         .iter()
         .filter_map(|e| match e {
-            sim_events::Event::VolcanoErupted { tile, reach, .. } => Some((tile.0, *reach)),
+            sim_events::Event::VolcanoErupted {
+                tile,
+                reach,
+                ash_tiles,
+                ..
+            } => Some((tile.0, *reach + *ash_tiles)),
             _ => None,
         })
         .collect();
@@ -40,8 +45,11 @@ fn volcanoes_erupt_and_the_world_carries_on() {
             .filter(|&&v| v > 0)
             .count()
     );
-    let (vent, reach) = eruptions[0];
-    assert!(reach >= 1, "lava must run at least the vent tile");
+    let (vent, touched) = eruptions[0];
+    assert!(
+        touched >= 4,
+        "lava and ash together must touch real country, got {touched}"
+    );
     assert!(
         world.regolith.rock[vent as usize] > 200,
         "fresh rock buries the vent's ground"

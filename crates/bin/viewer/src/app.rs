@@ -32,6 +32,10 @@ pub struct App {
     pub(crate) shade_hour: u64,
     pub(crate) fog: crate::fogview::FogView,
     pub(crate) waters: crate::waters::Waters,
+    /// The layer camera (docs/29): 0 = surface, 1 = under light cover,
+    /// 2 = the deep. Textures cut lazily; geology never changes.
+    pub(crate) depth_view: u8,
+    pub(crate) underground: [Option<TextureHandle>; 2],
     pub(crate) seen_events: usize,
     pub(crate) feed: Vec<Line>,
     pub(crate) folk: Folk,
@@ -72,6 +76,8 @@ impl App {
             shade_hour: 0,
             fog: crate::fogview::FogView::default(),
             waters,
+            depth_view: 0,
+            underground: [None, None],
             seen_events: 0,
             feed: Vec::new(),
             folk: Folk::default(),
@@ -121,6 +127,40 @@ impl App {
         }
     }
 
+    /// The stacked map layers: the surface world, or the layer camera's
+    /// x-ray slice when the depth view is on.
+    fn draw_map_layers(
+        &mut self,
+        ui: &egui::Ui,
+        painter: &egui::Painter,
+        map_rect: Rect,
+        uv: Rect,
+        rect: Rect,
+    ) {
+        if self.depth_view > 0 {
+            // The layer camera: an x-ray of the world, nothing living drawn.
+            let band = self.depth_view;
+            let world = &self.world;
+            let handle = self.underground[usize::from(band - 1)].get_or_insert_with(|| {
+                ui.ctx().load_texture(
+                    format!("underground-{band}"),
+                    layers::underground_image(world, band),
+                    TextureOptions::NEAREST,
+                )
+            });
+            painter.image(handle.id(), map_rect, uv, egui::Color32::WHITE);
+        } else {
+            painter.image(self.terrain.id(), map_rect, uv, egui::Color32::WHITE);
+            painter.image(self.shade.id(), map_rect, uv, egui::Color32::WHITE);
+            painter.image(self.territory.id(), map_rect, uv, egui::Color32::WHITE);
+            self.waters.draw(&self.world, &self.cam, painter, rect);
+            self.fog.draw(painter, map_rect, uv);
+            self.folk.draw(painter, &self.cam, rect);
+            crate::fogview::draw_scouts(&self.world, &self.cam, painter, rect);
+            crate::sky::draw_night(&self.world, painter, rect, map_rect);
+        }
+    }
+
     fn world_canvas(&mut self, ui: &mut egui::Ui, dt: f32) {
         let (response, painter) =
             ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
@@ -133,14 +173,7 @@ impl App {
             self.cam.to_screen(rect, Vec2::splat(size)),
         );
         let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
-        painter.image(self.terrain.id(), map_rect, uv, egui::Color32::WHITE);
-        painter.image(self.shade.id(), map_rect, uv, egui::Color32::WHITE);
-        painter.image(self.territory.id(), map_rect, uv, egui::Color32::WHITE);
-        self.waters.draw(&self.world, &self.cam, &painter, rect);
-        self.fog.draw(&painter, map_rect, uv);
-        self.folk.draw(&painter, &self.cam, rect);
-        crate::fogview::draw_scouts(&self.world, &self.cam, &painter, rect);
-        crate::sky::draw_night(&self.world, &painter, rect, map_rect);
+        self.draw_map_layers(ui, &painter, map_rect, uv, rect);
 
         let world_size = i64::from(self.world.genesis.fields.size);
         let cam = &self.cam;
@@ -187,6 +220,9 @@ impl eframe::App for App {
         if ui.input(|i| i.key_pressed(egui::Key::F)) {
             self.fog.cycle(self.world.nations.nations.len());
         }
+        if ui.input(|i| i.key_pressed(egui::Key::G)) {
+            self.depth_view = (self.depth_view + 1) % 3;
+        }
         if self.local.is_some()
             && ui.input(|i| i.key_pressed(egui::Key::Escape) || i.key_pressed(egui::Key::Backspace))
         {
@@ -202,6 +238,11 @@ impl eframe::App for App {
 
         let local_tile = self.local.as_ref().map(|l| l.tile);
         let fog_label = self.fog.label(&self.world);
+        let depth_label = match self.depth_view {
+            1 => Some("under light cover"),
+            2 => Some("the deep"),
+            _ => None,
+        };
         egui::Panel::top("bar").show(ui, |ui| {
             hud::top_bar(
                 ui,
@@ -210,6 +251,7 @@ impl eframe::App for App {
                 &mut self.ticks_per_sec,
                 local_tile,
                 fog_label.as_deref(),
+                depth_label,
             );
         });
         egui::Panel::right("feed")

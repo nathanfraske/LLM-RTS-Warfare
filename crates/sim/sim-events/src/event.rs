@@ -92,11 +92,26 @@ pub enum Event {
         tile: TileId,
         species: SpeciesId,
     },
-    /// The fire below broke out (docs/29): lava ran `reach` tiles downtree.
+    /// The fire below broke out (docs/29): lava ran `reach` tiles
+    /// downtree and ash fell on `ash_tiles` more, downwind.
     VolcanoErupted {
         tick: Tick,
         tile: TileId,
         reach: u32,
+        ash_tiles: u32,
+    },
+    /// The fault slipped (docs/29): the ground shook `reach` tiles around.
+    Earthquake {
+        tick: Tick,
+        tile: TileId,
+        reach: u32,
+    },
+    /// A shake brought a finished work down.
+    WorkToppled {
+        tick: Tick,
+        nation: NationId,
+        tile: TileId,
+        work: String,
     },
     MonthClosed {
         tick: Tick,
