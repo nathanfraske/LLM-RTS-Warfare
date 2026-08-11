@@ -22,6 +22,8 @@ pub struct Party {
     bearing: usize,
     /// Ticks of walking accumulated toward the next tile crossing.
     progress: u16,
+    /// Ticks the current ground demands per crossing — terrain-priced.
+    pace: u16,
     tiles_out: u16,
     outbound: bool,
     /// What the party has seen, carried until it gets home.
@@ -37,6 +39,7 @@ impl Party {
             tile: home,
             bearing: bearing % 8,
             progress: 0,
+            pace: 1,
             tiles_out: 0,
             outbound: true,
             learned: Vec::new(),
@@ -51,6 +54,7 @@ impl Party {
 pub fn tick(
     world: &mut WorldKnowledge,
     fields: &WorldFields,
+    sky: &climate::Climate,
     owner: &[Option<NationId>],
     met: &mut BTreeSet<(u32, u32)>,
     seed: WorldSeed,
@@ -65,7 +69,7 @@ pub fn tick(
         let advance = {
             let party = &mut world.parties[i];
             party.progress += 1;
-            party.progress >= exp.scout_ticks_per_tile
+            party.progress >= exp.scout_ticks_per_tile.max(party.pace)
         };
         if !advance {
             i += 1;
@@ -73,7 +77,7 @@ pub fn tick(
         }
         world.parties[i].progress = 0;
         match step(
-            world, i, fields, owner, met, seed, now, exp, sample, hostile, log,
+            world, i, fields, sky, owner, met, seed, now, exp, sample, hostile, log,
         ) {
             Outcome::Walking => i += 1,
             Outcome::Done => {
@@ -112,6 +116,7 @@ fn step(
     world: &mut WorldKnowledge,
     idx: usize,
     fields: &WorldFields,
+    sky: &climate::Climate,
     owner: &[Option<NationId>],
     met: &mut BTreeSet<(u32, u32)>,
     seed: WorldSeed,
@@ -148,6 +153,14 @@ fn step(
     };
 
     let party = &mut world.parties[idx];
+    // The ground entered sets the pace of the crossing.
+    party.pace = u16::try_from(
+        u32::from(exp.scout_ticks_per_tile)
+            * crate::travel_milli(fields, sky, from.0 as usize, next, exp)
+            / 1000,
+    )
+    .unwrap_or(u16::MAX)
+    .max(1);
     party.tile = TileId(next as u32);
     if party.outbound {
         party.tiles_out += 1;

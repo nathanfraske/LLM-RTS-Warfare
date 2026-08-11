@@ -143,8 +143,13 @@ impl LocalFolk {
                     ) * 0.35;
                     let anchor = self.people[i].target;
                     let p = &mut self.people[i];
-                    p.pos = (p.pos + wiggle)
+                    let cand = (p.pos + wiggle)
                         .clamp(anchor - Vec2::splat(1.2), anchor + Vec2::splat(1.2));
+                    if cell(map, cand)
+                        .is_some_and(|c| map.water[c] == Water::Dry && map.built[c] == 0)
+                    {
+                        p.pos = cand;
+                    }
                     if t <= 0.0 {
                         // A gatherer finishing at a tree brings it down.
                         if self.people[i].job == 0
@@ -196,7 +201,9 @@ impl LocalFolk {
             let (sin, cos) = angle.sin_cos();
             let d = Vec2::new(dir.x * cos - dir.y * sin, dir.x * sin + dir.y * cos);
             let next = p + d * step;
-            if cell(map, next).is_some_and(|c| map.water[c] == Water::Dry) {
+            // Water blocks, and so do walls: nobody clips through a
+            // building (docs/30 — the built world is solid).
+            if cell(map, next).is_some_and(|c| map.water[c] == Water::Dry && map.built[c] == 0) {
                 self.people[i].pos = next;
                 return false;
             }
@@ -240,6 +247,7 @@ impl LocalFolk {
                     }
                     if let Some(c) = cell(map, cand)
                         && map.water[c] == Water::Dry
+                        && map.built[c] == 0
                     {
                         // Gatherers prefer a standing tree, then any green.
                         let good = if job == 0 {

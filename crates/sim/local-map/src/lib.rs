@@ -107,7 +107,7 @@ pub fn generate(
         if buildings.iter().any(Design::is_groundwork) {
             clear_farm_plot(&mut tree, cx, cy);
         }
-        raise_buildings(&mut built, &mut tree, &water, buildings, cx, cy);
+        raise_buildings(&mut built, &mut tree, &water, &elevation, buildings, cx, cy);
     }
 
     LocalMap {

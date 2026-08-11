@@ -60,6 +60,31 @@ impl NationKnowledge {
     }
 }
 
+/// What one step into a tile costs a walker, per mille of the base pace
+/// (docs/22, docs/26): climbs are slow, high country is slow, deep snow
+/// is slowest. Every ledger-scale mover — scouts today, envoys, caravans,
+/// and armies tomorrow — pays the same ground the same way.
+#[must_use]
+pub fn travel_milli(
+    fields: &WorldFields,
+    sky: &climate::Climate,
+    from: usize,
+    into: usize,
+    exp: &tuning::Exploration,
+) -> u32 {
+    let climb = i64::from(fields.elevation[into] - fields.elevation[from]).max(0);
+    let mut cost =
+        1000 + u32::try_from(climb).unwrap_or(0) * u32::from(exp.travel_slope_permille) / 100;
+    if fields.elevation[into] > exp.travel_high_elevation {
+        cost += u32::from(exp.travel_high_permille);
+    }
+    let snow = u32::from(sky.snowpack[into]);
+    if snow > 0 {
+        cost += u32::from(exp.travel_snow_permille) * snow.min(900) / 900;
+    }
+    cost
+}
+
 /// The eight bearings a scout can be sent out on.
 pub const BEARING_NAMES: [&str; 8] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
 pub const BEARING_DELTAS: [(i64, i64); 8] = [
@@ -241,5 +266,34 @@ mod tests {
             "memories age"
         );
         assert_eq!(world.of(NationId(0)).age_months(6, Tick(2880)), None);
+    }
+
+    #[test]
+    fn the_ground_prices_the_walk() {
+        let exp = tuning::Exploration::default();
+        let fields = WorldFields {
+            size: 2,
+            elevation: vec![10, 900, 2_000, 10],
+            water: vec![world_map::Water::Dry; 4],
+            flow_acc: vec![1; 4],
+            drains_to: vec![u32::MAX; 4],
+            temperature: vec![150; 4],
+            moisture: vec![100; 4],
+            cell_fertility: vec![100; 4],
+        };
+        let mut sky = climate::Climate {
+            wet: vec![100; 4],
+            snowpack: vec![0; 4],
+            growth: vec![500; 4],
+            delivered: vec![10; 4],
+        };
+        let flat = travel_milli(&fields, &sky, 3, 0, &exp);
+        let climb = travel_milli(&fields, &sky, 0, 1, &exp);
+        let high = travel_milli(&fields, &sky, 1, 2, &exp);
+        assert!(climb > flat, "climbing costs more than the flat");
+        assert!(high > climb, "the high country costs more still");
+        sky.snowpack[0] = 600;
+        let snowed = travel_milli(&fields, &sky, 3, 0, &exp);
+        assert!(snowed > flat, "deep snow slows the same ground");
     }
 }

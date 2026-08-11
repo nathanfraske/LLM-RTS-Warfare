@@ -56,6 +56,7 @@ impl LocalCritters {
             );
             if let Some(c) = cell(map, pos)
                 && map.water[c] == Water::Dry
+                && map.built[c] == 0
                 && (pos - camp).length() > 20.0
             {
                 self.critters.push(Critter {
@@ -102,13 +103,15 @@ impl LocalCritters {
                 ) * 26.0;
                 let cand = (self.critters[i].pos + wander)
                     .clamp(Vec2::splat(1.0), Vec2::splat(size - 2.0));
-                if cell(map, cand).is_some_and(|c| map.water[c] == Water::Dry) {
+                if cell(map, cand).is_some_and(|c| map.water[c] == Water::Dry && map.built[c] == 0)
+                {
                     self.critters[i].target = cand;
                 }
             } else {
                 let step = (speed * dt).min(dist);
                 let next = self.critters[i].pos + delta / dist * step;
-                if cell(map, next).is_some_and(|c| map.water[c] == Water::Dry) {
+                if cell(map, next).is_some_and(|c| map.water[c] == Water::Dry && map.built[c] == 0)
+                {
                     self.critters[i].pos = next;
                 } else {
                     self.critters[i].target = self.critters[i].pos;

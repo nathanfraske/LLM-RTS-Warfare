@@ -42,6 +42,7 @@ impl World {
         knowledge::scouts::tick(
             &mut self.knowledge,
             fields,
+            sky,
             owner,
             &mut self.nations.met,
             self.seed,

@@ -22,6 +22,14 @@ pub struct Exploration {
     pub hungry_scout_nutrition: f64,
     /// Months between need-driven scout dispatches (impatience brake).
     pub scout_cooldown_months: u8,
+    /// Extra walking cost per 100 units of climb to a tile, per mille.
+    pub travel_slope_permille: u16,
+    /// Extra walking cost in high country, per mille.
+    pub travel_high_permille: u16,
+    /// Elevation where the high-country cost begins.
+    pub travel_high_elevation: i32,
+    /// Extra walking cost under full snowpack, per mille.
+    pub travel_snow_permille: u16,
 }
 
 impl Default for Exploration {
@@ -35,6 +43,10 @@ impl Default for Exploration {
             crowd_scout_frac: 0.8,
             hungry_scout_nutrition: 0.9,
             scout_cooldown_months: 4,
+            travel_slope_permille: 90,
+            travel_high_permille: 350,
+            travel_high_elevation: 1_500,
+            travel_snow_permille: 800,
         }
     }
 }
