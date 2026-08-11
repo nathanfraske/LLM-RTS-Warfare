@@ -1,0 +1,50 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/schema/*",
+    "crates/sim/*",
+    "crates/bin/*",
+    "crates/tools/*",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+# external — pure Rust only (docs/01a-foundation.md)
+fixed = { version = "1", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+postcard = { version = "1", features = ["alloc"] }
+blake3 = "1"
+toml = "0.8"
+
+# internal
+world-schema = { path = "crates/schema/world-schema" }
+directive-schema = { path = "crates/schema/directive-schema" }
+sim-clock = { path = "crates/sim/sim-clock" }
+sim-events = { path = "crates/sim/sim-events" }
+world-map = { path = "crates/sim/world-map" }
+cohorts = { path = "crates/sim/cohorts" }
+flora = { path = "crates/sim/flora" }
+species = { path = "crates/sim/species" }
+nations = { path = "crates/sim/nations" }
+readouts = { path = "crates/sim/readouts" }
+sim-server = { path = "crates/bin/sim-server" }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Quantization-heavy numeric code: narrowing/sign casts are intentional and
+# reviewed at the cast site (worldgen, fixed-point packing).
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"

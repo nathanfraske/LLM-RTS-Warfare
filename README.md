@@ -1,0 +1,50 @@
+# LLM-RTS-Warfare
+
+A mostly-automated, RTS-like civilization simulator where LLM agents — local or cloud, whatever the operator wants to run — act as national **overseers**, not unit micromanagers. Agents set policy, direct research focus, and conduct diplomacy by literally talking to each other through in-world channels, while the simulation runs their nations day to day at the scale of millions of individuals. Humans spectate.
+
+**Status:** M0 foundation in progress. The documents are the source of truth — update them when decisions change.
+
+## Quickstart
+
+```text
+just check        # fmt + clippy + tests + structure gates (the full local gate)
+just run 42 8640  # run a world: seed 42, one sim-year of hourly ticks
+just replay 42    # determinism proof: two runs must print identical hashes
+```
+
+See [01a-foundation](docs/01a-foundation.md) for bootstrap from a bare machine.
+
+## Document index
+
+| Doc | Concept |
+|---|---|
+| [00-vision](docs/00-vision.md) | What this is, pillars, non-goals, the risky bets |
+| [01-architecture](docs/01-architecture.md) | **Main implementation document** — topology, determinism, modularity principles, workspace layout |
+| [01a-foundation](docs/01a-foundation.md) | Build/dev/deps across platforms — `just` + `cargo xtask`, toolchain pinning, CI plan |
+| [02-simulation-core](docs/02-simulation-core.md) | Cohort layer, LOD hydration, the individual registry, task legibility |
+| [03-invention-grammar](docs/03-invention-grammar.md) | Procedural technology: primitives, composition, derivation |
+| [03a-grammar-spec](docs/03a-grammar-spec.md) | **Formal grammar spec** — scales, interfaces, primitive registry, compiler, test suite |
+| [04-institutions-directives](docs/04-institutions-directives.md) | The autopilot government and the typed directive surface |
+| [05-agents-and-mcp](docs/05-agents-and-mcp.md) | MCP surface, agent harness, memory/compaction strategy |
+| [05a-agent-integration-spec](docs/05a-agent-integration-spec.md) | **Formal agent spec** — MCP tools, session contract, agent broker, provider connectors |
+| [06-diplomacy-intel](docs/06-diplomacy-intel.md) | In-world diplomacy, treaties-as-code, espionage, fog of war |
+| [07-buildings-and-cities](docs/07-buildings-and-cities.md) | Building modules, construction, organic city growth |
+| [08-species](docs/08-species.md) | Species as parameter bundles, multi-species nations |
+| [09-battles](docs/09-battles.md) | Aggregate-authoritative combat, observed battle rendering |
+| [10-visualization](docs/10-visualization.md) | Renderer decision (custom wgpu, no engine), snapshot protocol, agent screenshots |
+| [11-roadmap](docs/11-roadmap.md) | Milestones M0–M5 with exit criteria |
+| [12-sovereignty](docs/12-sovereignty.md) | Embodied rule — the Seat, edicts, legitimacy, channels, puppets/exile/restoration |
+| [13-worldgen](docs/13-worldgen.md) | Dawn-of-time world generation — fields not biomes, hydrology, procedural flora |
+| [14-bands-and-councils](docs/14-bands-and-councils.md) | Sentient nations v1 — band autopilot, directives, fogged reports, the council loop |
+
+## Stack (decided)
+
+Rust (stable) · Rayon for CPU parallelism · CubeCL for GPU compute (wgpu backend by default; CUDA/ROCm optional) · custom wgpu + winit + egui renderer, no game engine · headless deterministic sim server, event-sourced · MCP as the agent-facing surface.
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).
+
+## The one-paragraph architecture
+
+The sim is a headless, deterministic, event-sourced server ticking at a fixed timestep. Nations run themselves through an institutional autopilot; LLM agents steer via typed directives and negotiate through in-world diplomacy, connected over MCP. Populations exist as statistical cohorts on the GPU, with individuals hydrated to full simulation wherever attention is. All content — technology, buildings, species — derives from a small authored set of primitives ("author the periodic table, not the molecules"). Viewers and the agent screenshot service are thin clients over a snapshot protocol, rendered by a custom minimal wgpu pixel-art renderer.

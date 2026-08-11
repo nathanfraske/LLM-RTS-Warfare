@@ -1,0 +1,15 @@
+[package]
+name = "map-export"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+sim-server = { workspace = true }
+world-map = { workspace = true }
+flora = { workspace = true }
+sim-events = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,23 @@
+[package]
+name = "viewer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+world-schema = { workspace = true }
+sim-events = { workspace = true }
+world-map = { workspace = true }
+cohorts = { workspace = true }
+species = { workspace = true }
+nations = { workspace = true }
+readouts = { workspace = true }
+sim-server = { workspace = true }
+map-export = { path = "../map-export" }
+serde_json = { workspace = true }
+directive-schema = { workspace = true }
+eframe = "0.36.1"
+
+[lints]
+workspace = true

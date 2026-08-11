@@ -1,0 +1,10 @@
+[
+  { "tick": 43200, "nation": 0, "directive": { "kind": "Name", "name": "The Emberfast" } },
+  { "tick": 43200, "nation": 0, "directive": { "kind": "Settle", "province": 31 } },
+  { "tick": 60480, "nation": 0, "directive": { "kind": "Settle", "province": 78 } },
+  { "tick": 43200, "nation": 1, "directive": { "kind": "Name", "name": "The Reedcrown Confederacy" } },
+  { "tick": 43200, "nation": 1, "directive": { "kind": "SetStance", "stance": "Expansive" } },
+  { "tick": 43200, "nation": 1, "directive": { "kind": "Settle", "province": 36 } },
+  { "tick": 60480, "nation": 1, "directive": { "kind": "Settle", "province": 86 } },
+  { "tick": 77760, "nation": 1, "directive": { "kind": "Settle", "province": 66 } }
+]
