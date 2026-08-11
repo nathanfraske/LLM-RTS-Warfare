@@ -73,6 +73,9 @@ pub struct MonthFood {
     pub famines: Vec<TileId>,
     /// Bands hungry long enough that the autopilot should move them.
     pub starving_moves: Vec<TileId>,
+    /// Tiles eating badly — reason enough to go looking for a way out
+    /// (docs/22), well before hunger forces a blind move.
+    pub hungry: Vec<TileId>,
 }
 
 impl Economy {
@@ -150,6 +153,9 @@ impl Economy {
             entry.last_nutrition = nutrition;
             out.nutrition.insert(t, nutrition);
 
+            if nutrition < Quantity::from_num(tun.exploration.hungry_scout_nutrition) {
+                out.hungry.push(TileId(t));
+            }
             if nutrition < Quantity::from_num(tun.subsistence.famine_nutrition) {
                 out.famines.push(TileId(t));
                 let streak = self.hunger_streak.entry(t).or_insert(0);

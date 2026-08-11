@@ -1,23 +1,28 @@
-//! The band autopilot: monthly splitting, frontier settlement, and — when
-//! the land stops feeding a band — relocation. Policy in, visible movement
-//! out (docs/04-institutions-directives.md, docs/19-ecology-and-subsistence.md).
+//! The band autopilot: monthly splitting, frontier settlement, relocation,
+//! and — new with docs/22 — the reasons that put people on the road. All of
+//! it runs under the nation's own fog: bands judge only tiles they remember
+//! (which may be stale), gamble blind into the unknown when desperate, and
+//! send scouts when need outruns knowledge. Nobody moves without a reason.
 //!
-//! Destinations are judged by *food potential* (a closure supplied by the
-//! composition root, so this crate needs no ecology dependency). Bands that
-//! keep moving are nomads; bands that invest stay — nobody names either.
+//! Destinations are judged by *remembered* food potential; the `potential`
+//! closure samples the world as it stands and is used only where people
+//! actually are (their own tile, and observation on arrival).
 
+use crate::relocation::{relocate_starving, remembered_free};
+use crate::settlement::split_crowded;
 use crate::{WorldNations, registry};
-use cohorts::{CohortKey, Cohorts};
+use cohorts::Cohorts;
+use knowledge::WorldKnowledge;
 use policy::PolicyTree;
-use sim_events::{Event, EventLog};
+use sim_events::{Event, EventLog, WorldSeed};
 use species::Species;
-use tuning::Society;
+use tuning::{Exploration, Society};
 use world_map::{WorldFields, tiles};
 use world_schema::{NationId, Quantity, Tick, TileId};
 
 /// Posture interpretation: split-population threshold multiplier. Unknown
 /// text can't get in (the registry bounds the leaf) but reads as steady.
-fn posture_threshold(tree: &PolicyTree, soc: &Society) -> Quantity {
+pub(crate) fn posture_threshold(tree: &PolicyTree, soc: &Society) -> Quantity {
     match tree.text(registry::POSTURE) {
         registry::POSTURE_CONSOLIDATE => Quantity::from_num(soc.stance_consolidate_mult),
         registry::POSTURE_EXPANSIVE => Quantity::from_num(soc.stance_expansive_mult),
@@ -25,185 +30,68 @@ fn posture_threshold(tree: &PolicyTree, soc: &Society) -> Quantity {
     }
 }
 
-/// One nation-tick per closed month: starving bands move, crowded bands split.
+/// One nation-tick per closed month: starving bands move (informed or
+/// blind), crowded bands split into known land, and blocked need sends
+/// scouts into the dark.
 #[allow(clippy::too_many_arguments)]
 pub fn tick_month(
     tick: Tick,
+    seed: WorldSeed,
     world: &mut WorldNations,
     fields: &WorldFields,
     table: &[Species],
     cohorts: &mut Cohorts,
+    known: &mut WorldKnowledge,
     log: &mut EventLog,
     potential: &dyn Fn(usize) -> Quantity,
     starving: &[TileId],
+    hungry: &[TileId],
     soc: &Society,
+    exp: &Exploration,
 ) {
-    relocate_starving(tick, world, fields, cohorts, log, potential, starving, soc);
-    split_crowded(tick, world, fields, table, cohorts, log, potential, soc);
+    relocate_starving(
+        tick, seed, world, fields, cohorts, known, log, potential, starving, soc,
+    );
+    split_crowded(
+        tick, world, fields, table, cohorts, known, log, potential, soc, exp,
+    );
+    scout_for_relief(tick, world, fields, known, hungry, log, exp);
 }
 
-/// A band hungry too long abandons its tile for the best free neighbor —
-/// if anywhere nearby actually promises more food.
-#[allow(clippy::too_many_arguments)]
-fn relocate_starving(
+/// Hunger short of catastrophe also sends scouts: a band eating badly with
+/// no known way out looks for one before it must gamble.
+fn scout_for_relief(
     tick: Tick,
-    world: &mut WorldNations,
+    world: &WorldNations,
     fields: &WorldFields,
-    cohorts: &mut Cohorts,
+    known: &mut WorldKnowledge,
+    hungry: &[TileId],
     log: &mut EventLog,
-    potential: &dyn Fn(usize) -> Quantity,
-    starving: &[TileId],
-    soc: &Society,
+    exp: &Exploration,
 ) {
-    for &from in starving {
-        let Some(nation_id) = world.owner[from.0 as usize] else {
+    for &t in hungry {
+        let Some(nation_id) = world.owner[t.0 as usize] else {
             continue;
         };
-        let ni = world
-            .nations
-            .iter()
-            .position(|n| n.id == nation_id)
-            .expect("owner exists");
-        let here = potential(from.0 as usize);
-        let target = tiles::land_neighbors(fields, from.0 as usize)
+        let memory = known.of(nation_id);
+        let any_known_exit = tiles::land_neighbors(fields, t.0 as usize)
             .into_iter()
-            .filter(|t| world.owner[t.0 as usize].is_none())
-            .map(|t| (t, potential(t.0 as usize)))
-            .max_by(|a, b| a.1.cmp(&b.1).then(b.0.0.cmp(&a.0.0)));
-        let Some((to, promise)) = target else {
-            continue;
-        };
-        if promise < here * Quantity::from_num(soc.relocate_gain) {
-            continue; // nowhere better within reach — endure or dwindle
-        }
-        let species_id = world.nations[ni].species;
-        // The whole band leaves: take everything the cohort has.
-        let moved = cohorts.remove(
-            CohortKey {
-                tile: from,
-                species: species_id,
-            },
-            Quantity::MAX,
-        );
-        cohorts.add(
-            CohortKey {
-                tile: to,
-                species: species_id,
-            },
-            moved,
-        );
-        world.owner[from.0 as usize] = None;
-        world.owner[to.0 as usize] = Some(nation_id);
-        if world.nations[ni].seat == from {
-            world.nations[ni].seat = to;
-        }
-        log.push(Event::BandMoved {
-            tick,
-            nation: nation_id,
-            from,
-            to,
-        });
-        contact_check(tick, world, fields, to, nation_id, log);
-    }
-}
-
-/// Crowded settlements send two-fifths of their people to found the most
-/// promising free neighbor. At most one settlement per nation per month.
-#[allow(clippy::too_many_arguments)]
-fn split_crowded(
-    tick: Tick,
-    world: &mut WorldNations,
-    fields: &WorldFields,
-    table: &[Species],
-    cohorts: &mut Cohorts,
-    log: &mut EventLog,
-    potential: &dyn Fn(usize) -> Quantity,
-    soc: &Society,
-) {
-    for ni in 0..world.nations.len() {
-        let nation = &world.nations[ni];
-        let s = &table[nation.species.0 as usize];
-        let split_threshold = Quantity::from_num(soc.split_base_pop)
-            * posture_threshold(&nation.policy, soc)
-            * Quantity::from_num(1000)
-            / Quantity::from_num(s.drive_milli);
-
-        let owned: Vec<TileId> = world.owned_tiles(nation.id).collect();
-        let decreed = nation.decreed_target;
-        let mut settlement: Option<(TileId, TileId, Quantity, bool)> = None;
-
-        for &t in &owned {
-            let pop = cohorts.population_of(CohortKey {
-                tile: t,
-                species: nation.species,
-            });
-            if pop < Quantity::from_num(soc.split_min_pop) {
-                continue;
-            }
-            let neighbors = tiles::land_neighbors(fields, t.0 as usize);
-            let decreed_here = decreed
-                .filter(|target| neighbors.contains(target))
-                .filter(|target| world.owner[target.0 as usize].is_none());
-            let pressured = pop > split_threshold;
-
-            let target = if let Some(target) = decreed_here {
-                Some((target, true))
-            } else if pressured {
-                neighbors
-                    .iter()
-                    .filter(|target| world.owner[target.0 as usize].is_none())
-                    .map(|&target| (target, potential(target.0 as usize)))
-                    .filter(|(_, p)| *p > Quantity::from_num(soc.split_potential_floor))
-                    .max_by(|a, b| a.1.cmp(&b.1).then(b.0.0.cmp(&a.0.0)))
-                    .map(|(target, _)| (target, false))
-            } else {
-                None
-            };
-
-            if let Some((target, was_decreed)) = target {
-                let settlers = pop * Quantity::from_num(soc.settlers_frac);
-                if settlers >= Quantity::from_num(soc.settlers_min) {
-                    settlement = Some((t, target, settlers, was_decreed));
-                    break;
-                }
-            }
-        }
-
-        if let Some((from, target, settlers, was_decreed)) = settlement {
-            let nation_id = world.nations[ni].id;
-            let species_id = world.nations[ni].species;
-            let moved = cohorts.remove(
-                CohortKey {
-                    tile: from,
-                    species: species_id,
-                },
-                settlers,
-            );
-            cohorts.add(
-                CohortKey {
-                    tile: target,
-                    species: species_id,
-                },
-                moved,
-            );
-            world.owner[target.0 as usize] = Some(nation_id);
-            if was_decreed {
-                world.nations[ni].decreed_target = None;
-            }
-            log.push(Event::TileSettled {
-                tick,
-                nation: nation_id,
-                from,
-                tile: target,
-                settlers: moved,
-            });
-            contact_check(tick, world, fields, target, nation_id, log);
+            .any(|n| remembered_free(world, memory, n).is_some());
+        if !any_known_exit {
+            let seat = world
+                .nations
+                .iter()
+                .find(|n| n.id == nation_id)
+                .map(|n| n.seat)
+                .expect("owner exists");
+            known.need_scout(nation_id, seat, fields, tick, exp, log);
         }
     }
 }
 
-/// First contact fires the moment territories touch (low id first).
-fn contact_check(
+/// First contact fires when territories actually touch — fires visible
+/// from home. Scout encounters handle meetings at distance (docs/22).
+pub(crate) fn contact_check(
     tick: Tick,
     world: &mut WorldNations,
     fields: &WorldFields,

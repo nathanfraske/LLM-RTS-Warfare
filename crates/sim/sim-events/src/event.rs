@@ -45,7 +45,23 @@ pub enum Event {
         nation: NationId,
         from: TileId,
         to: TileId,
+        /// True when the band gambled into land it had never seen (docs/22).
+        blind: bool,
     },
+    /// A scout party left to walk a bearing (docs/22).
+    ScoutDispatched {
+        tick: Tick,
+        nation: NationId,
+        bearing: String,
+    },
+    /// A party came home; only now does what it saw enter the map.
+    ScoutReturned {
+        tick: Tick,
+        nation: NationId,
+        tiles_learned: u32,
+    },
+    /// A party never came back; what it knew is gone.
+    ScoutLost { tick: Tick, nation: NationId },
     WorkCommissioned {
         tick: Tick,
         nation: NationId,

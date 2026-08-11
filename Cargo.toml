@@ -26,6 +26,7 @@ toml = "0.8"
 world-schema = { path = "crates/schema/world-schema" }
 directive-schema = { path = "crates/schema/directive-schema" }
 policy = { path = "crates/schema/policy" }
+knowledge = { path = "crates/sim/knowledge" }
 sim-clock = { path = "crates/sim/sim-clock" }
 sim-events = { path = "crates/sim/sim-events" }
 world-map = { path = "crates/sim/world-map" }

@@ -106,6 +106,7 @@ fn the_charter_renders_the_live_registry() {
         &world.log,
         world.tick(),
         &world.registry,
+        &world.knowledge,
         &world.tuning,
     );
     for key in [

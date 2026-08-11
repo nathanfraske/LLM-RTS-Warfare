@@ -10,20 +10,24 @@ use std::collections::BTreeMap;
 
 use crate::{WorldNations, mandate, registry};
 use directive_schema::{Directive, DirectiveEntry};
+use knowledge::WorldKnowledge;
 use policy::{ActionDef, PolicyValue, Registry, TargetKind};
 use sim_events::{Event, EventLog};
-use tuning::Society;
+use tuning::{Exploration, Society};
 use world_map::{WorldFields, tiles};
 use world_schema::{NationId, Quantity, Tick, TileId};
 
 /// Validate, price, and apply one logged directive at its scheduled tick.
+#[allow(clippy::too_many_arguments)]
 pub fn apply(
     entry: &DirectiveEntry,
     world: &mut WorldNations,
     fields: &WorldFields,
     reg: &Registry,
+    known: &mut WorldKnowledge,
     log: &mut EventLog,
     soc: &Society,
+    exp: &Exploration,
 ) {
     let tick = Tick(entry.tick);
     let nation_id = NationId(entry.nation);
@@ -42,7 +46,7 @@ pub fn apply(
 
     // Validate against the registry and the world before charging — a
     // rejected order costs nothing.
-    let base = match validate(&entry.directive, ni, world, fields, reg) {
+    let base = match validate(&entry.directive, ni, world, fields, reg, known, exp) {
         Ok(base) => base,
         Err(reason) => {
             reject(log, reason);
@@ -82,7 +86,7 @@ pub fn apply(
             action,
             target,
             params,
-        } => enact(action, *target, params, ni, world, tick, log, soc),
+        } => enact(action, *target, params, ni, world, known, tick, log, soc),
     }
 }
 
@@ -93,6 +97,8 @@ fn validate(
     world: &WorldNations,
     fields: &WorldFields,
     reg: &Registry,
+    known: &WorldKnowledge,
+    exp: &Exploration,
 ) -> Result<f64, String> {
     match directive {
         Directive::Set { key, value } => {
@@ -118,6 +124,17 @@ fn validate(
                 if world.works.has_or_building(t, work) {
                     return Err(format!("a {work} already stands or is being built there"));
                 }
+            }
+            if action == registry::SETTLE {
+                let t = tile.expect("frontier target checked");
+                if known.of(world.nations[ni].id).known(t as usize).is_none() {
+                    return Err("none among us has walked that land".into());
+                }
+            }
+            if action == registry::SCOUT
+                && known.parties_of(world.nations[ni].id) >= usize::from(exp.max_parties)
+            {
+                return Err("every party we can field is already afield".into());
             }
             Ok(def.cost)
         }
@@ -193,6 +210,7 @@ fn enact(
     params: &BTreeMap<String, PolicyValue>,
     ni: usize,
     world: &mut WorldNations,
+    known: &mut WorldKnowledge,
     tick: Tick,
     log: &mut EventLog,
     soc: &Society,
@@ -231,6 +249,14 @@ fn enact(
                 tile: TileId(tile),
                 work: work.to_string(),
             });
+        }
+        registry::SCOUT => {
+            let bearing = params["bearing"].as_text().expect("checked as choice");
+            let b = knowledge::BEARING_NAMES
+                .iter()
+                .position(|n| *n == bearing)
+                .expect("checked against options");
+            known.dispatch(nation_id, world.nations[ni].seat, b, tick, log);
         }
         _ => unreachable!("every registered action has a dispatch arm"),
     }

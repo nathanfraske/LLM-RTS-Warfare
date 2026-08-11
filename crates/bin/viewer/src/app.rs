@@ -28,6 +28,7 @@ pub struct App {
     terrain: TextureHandle,
     territory: TextureHandle,
     territory_dirty: bool,
+    fog: crate::fogview::FogView,
     seen_events: usize,
     feed: Vec<Line>,
     folk: Folk,
@@ -57,6 +58,7 @@ impl App {
             terrain,
             territory,
             territory_dirty: false,
+            fog: crate::fogview::FogView::default(),
             seen_events: 0,
             feed: Vec::new(),
             folk: Folk::default(),
@@ -167,7 +169,9 @@ impl App {
         let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
         painter.image(self.terrain.id(), map_rect, uv, egui::Color32::WHITE);
         painter.image(self.territory.id(), map_rect, uv, egui::Color32::WHITE);
+        self.fog.draw(&painter, map_rect, uv);
         self.folk.draw(&painter, &self.cam, rect);
+        crate::fogview::draw_scouts(&self.world, &self.cam, &painter, rect);
 
         let world_size = i64::from(self.world.genesis.fields.size);
         let cam = &self.cam;
@@ -211,6 +215,9 @@ impl eframe::App for App {
         if ui.input(|i| i.key_pressed(egui::Key::Space)) {
             self.paused = !self.paused;
         }
+        if ui.input(|i| i.key_pressed(egui::Key::F)) {
+            self.fog.cycle(self.world.nations.nations.len());
+        }
         if self.local.is_some()
             && ui.input(|i| i.key_pressed(egui::Key::Escape) || i.key_pressed(egui::Key::Backspace))
         {
@@ -226,7 +233,10 @@ impl eframe::App for App {
             self.territory_dirty = false;
         }
 
+        self.fog.refresh(ui.ctx(), &self.world);
+
         let local_tile = self.local.as_ref().map(|l| l.tile);
+        let fog_label = self.fog.label(&self.world);
         egui::Panel::top("bar").show(ui, |ui| {
             hud::top_bar(
                 ui,
@@ -234,6 +244,7 @@ impl eframe::App for App {
                 &mut self.paused,
                 &mut self.ticks_per_sec,
                 local_tile,
+                fog_label.as_deref(),
             );
         });
         egui::Panel::right("feed")

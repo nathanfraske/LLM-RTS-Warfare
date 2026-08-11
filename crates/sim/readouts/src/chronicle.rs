@@ -103,12 +103,41 @@ fn world_line(e: &Event, id: NationId, world: &WorldNations) -> Option<String> {
             nation,
             from,
             to,
+            blind,
+        } if *nation == id => Some(if *blind {
+            format!(
+                "{} — hunger drove our band from tile {} blindly into unwalked land at tile {}",
+                stamp(*tick),
+                from.0,
+                to.0
+            )
+        } else {
+            format!(
+                "{} — hunger drove our band from tile {} to tile {}",
+                stamp(*tick),
+                from.0,
+                to.0
+            )
+        }),
+        Event::ScoutDispatched {
+            tick,
+            nation,
+            bearing,
         } if *nation == id => Some(format!(
-            "{} — hunger drove our band from tile {} to tile {}",
-            stamp(*tick),
-            from.0,
-            to.0
+            "{} — a party of scouts set out to the {bearing}",
+            stamp(*tick)
         )),
+        Event::ScoutReturned {
+            tick,
+            nation,
+            tiles_learned,
+        } if *nation == id => Some(format!(
+            "{} — our scouts came home; {tiles_learned} tiles mapped",
+            stamp(*tick)
+        )),
+        Event::ScoutLost { tick, nation } if *nation == id => {
+            Some(format!("{} — our scouts never came back", stamp(*tick)))
+        }
         Event::NationsMet { tick, a, b } if *a == id || *b == id => {
             let other = if *a == id { *b } else { *a };
             Some(format!("{} — we met {}", stamp(*tick), name_of(other)))

@@ -6,6 +6,7 @@ mod app;
 mod camera;
 mod critters;
 mod feed;
+mod fogview;
 mod folk;
 mod hud;
 mod layers;

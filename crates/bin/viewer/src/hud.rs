@@ -21,6 +21,7 @@ pub fn top_bar(
     paused: &mut bool,
     ticks_per_sec: &mut f64,
     local_tile: Option<TileId>,
+    fog_nation: Option<&str>,
 ) {
     ui.horizontal(|ui| {
         let tick = world.tick();
@@ -60,8 +61,16 @@ pub fn top_bar(
                 );
             }
             None => {
-                ui.label("double-click a tile to walk it · drag/WASD pans · wheel zooms");
+                ui.label("double-click a tile to walk it · drag/WASD pans · wheel zooms · F fog");
             }
+        }
+        if let Some(name) = fog_nation {
+            ui.separator();
+            ui.label(
+                RichText::new(format!("FOG · the world as {name} knows it"))
+                    .strong()
+                    .color(egui::Color32::from_rgb(240, 205, 90)),
+            );
         }
     });
 }

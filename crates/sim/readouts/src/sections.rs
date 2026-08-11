@@ -13,8 +13,6 @@ use tuning::Tuning;
 use world_map::{WorldFields, tiles};
 use world_schema::{NationId, Quantity};
 
-use crate::FRONTIER_ROWS;
-
 pub(crate) fn works(out: &mut String, nation_id: NationId, world: &WorldNations) {
     let _ = writeln!(out, "\n## Works\n");
     let mut any = false;
@@ -157,58 +155,6 @@ Food per worker per month, by tile:
             parts.push(format!("{name} {:.2}", m[i]));
         }
         let _ = writeln!(out, "- tile {}: {}", t.0, parts.join(" · "));
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn frontier(
-    out: &mut String,
-    nation_id: NationId,
-    world: &WorldNations,
-    fields: &WorldFields,
-    wild: &Fauna,
-    flora_live: &[u8],
-    tun: &Tuning,
-) {
-    let _ = writeln!(
-        out,
-        "
-## Frontier (settleable borders)
-"
-    );
-    let _ = writeln!(out, "| Tile | Terrain | Food/worker (est.) | Water |");
-    let _ = writeln!(out, "|---|---|---|---|");
-    let mut frontier: Vec<u32> = world
-        .owned_tiles(nation_id)
-        .flat_map(|t| tiles::land_neighbors(fields, t.0 as usize))
-        .map(|t| t.0)
-        .filter(|&t| world.owner[t as usize].is_none())
-        .collect();
-    frontier.sort_unstable();
-    frontier.dedup();
-    // Agents get the best candidates, not an unbounded wall of rows.
-    frontier.sort_by_key(|&t| {
-        std::cmp::Reverse(
-            economy::potential(fields, wild, flora_live, t as usize, &tun.subsistence).to_bits(),
-        )
-    });
-    let shown = frontier.len().min(FRONTIER_ROWS);
-    for &t in &frontier[..shown] {
-        let _ = writeln!(
-            out,
-            "| {t} | {:?} | {:.2} | {} |",
-            tiles::label(fields, t as usize),
-            economy::potential(fields, wild, flora_live, t as usize, &tun.subsistence),
-            water_note(fields, t as usize),
-        );
-    }
-    if frontier.len() > shown {
-        let _ = writeln!(
-            out,
-            "
-({} further border tiles omitted)",
-            frontier.len() - shown
-        );
     }
 }
 

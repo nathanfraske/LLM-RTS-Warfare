@@ -18,6 +18,24 @@ pub fn terrain_image(world: &World) -> ColorImage {
     ColorImage::from_rgb([size, size], &rgb)
 }
 
+/// One nation's fog: what it has never seen is near-black, stale memories
+/// dim with age, fresh ground is clear (docs/22-knowledge-and-discovery.md).
+#[must_use]
+pub fn fog_image(world: &World, nation: world_schema::NationId) -> ColorImage {
+    let size = world.genesis.fields.size as usize;
+    let memory = world.knowledge.of(nation);
+    let now = world.tick();
+    let mut rgba = vec![0u8; size * size * 4];
+    for tile in 0..size * size {
+        let alpha = match memory.age_months(tile, now) {
+            None => 235,
+            Some(age) => u8::try_from((age * 6).min(120)).expect("capped"),
+        };
+        rgba[tile * 4 + 3] = alpha;
+    }
+    ColorImage::from_rgba_unmultiplied([size, size], &rgba)
+}
+
 /// Territory tint: owned tiles carry their nation's color at low alpha.
 #[must_use]
 pub fn territory_image(world: &World) -> ColorImage {

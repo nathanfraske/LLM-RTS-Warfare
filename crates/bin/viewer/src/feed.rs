@@ -48,7 +48,9 @@ fn stamp(tick: Tick) -> String {
 /// Describe an event for the feed; `None` for events too noisy to show.
 #[must_use]
 pub fn describe(event: &Event, world: &World) -> Option<Line> {
-    overseer_line(event, world).or_else(|| worldly_line(event, world))
+    overseer_line(event, world)
+        .or_else(|| scout_line(event, world))
+        .or_else(|| worldly_line(event, world))
 }
 
 /// Overseer actions: the directive-driven events, highlighted in gold.
@@ -119,6 +121,46 @@ fn overseer_line(event: &Event, world: &World) -> Option<Line> {
     Some(Line { text, kind })
 }
 
+/// Parties afield: dispatches, homecomings, and the ones that never return.
+fn scout_line(event: &Event, world: &World) -> Option<Line> {
+    let (text, kind) = match event {
+        Event::ScoutDispatched {
+            tick,
+            nation,
+            bearing,
+        } => (
+            format!(
+                "{} · scouts of {} set out to the {bearing}",
+                stamp(*tick),
+                nation_name(world, *nation)
+            ),
+            Kind::Worldly,
+        ),
+        Event::ScoutReturned {
+            tick,
+            nation,
+            tiles_learned,
+        } => (
+            format!(
+                "{} · scouts of {} come home, {tiles_learned} tiles mapped",
+                stamp(*tick),
+                nation_name(world, *nation)
+            ),
+            Kind::Worldly,
+        ),
+        Event::ScoutLost { tick, nation } => (
+            format!(
+                "{} · the scouts of {} never come back",
+                stamp(*tick),
+                nation_name(world, *nation)
+            ),
+            Kind::Alarm,
+        ),
+        _ => return None,
+    };
+    Some(Line { text, kind })
+}
+
 /// World events: what the simulation itself did.
 fn worldly_line(event: &Event, world: &World) -> Option<Line> {
     let (text, kind) = match event {
@@ -165,12 +207,18 @@ fn worldly_line(event: &Event, world: &World) -> Option<Line> {
             nation,
             from,
             to,
+            blind,
         } => (
             format!(
-                "{} · hunger drives the band of {} from tile {} to tile {}",
+                "{} · hunger drives the band of {} from tile {} {} tile {}",
                 stamp(*tick),
                 nation_name(world, *nation),
                 from.0,
+                if *blind {
+                    "blindly into unwalked land at"
+                } else {
+                    "to"
+                },
                 to.0
             ),
             Kind::Alarm,

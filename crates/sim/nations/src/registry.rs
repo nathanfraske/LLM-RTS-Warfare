@@ -16,6 +16,7 @@ pub const POSTURE_EXPANSIVE: &str = "expansive";
 pub const NAME: &str = "nation.name";
 pub const SETTLE: &str = "band.settle";
 pub const COMMISSION: &str = "works.commission";
+pub const SCOUT: &str = "band.scout";
 
 #[must_use]
 pub fn policy_defs(soc: &Society) -> Vec<PolicyDef> {
@@ -56,7 +57,26 @@ pub fn action_defs(soc: &Society) -> Vec<ActionDef> {
             target: TargetKind::FrontierTile,
             params: Vec::new(),
             cost: soc.cost_settle,
-            summary: "Decree settlement of a bordering tile; a band founds it when it can.".into(),
+            summary: "Decree settlement of a bordering tile your people have walked; a band \
+                      founds it when it can."
+                .into(),
+        },
+        ActionDef {
+            key: SCOUT.into(),
+            target: TargetKind::Nation,
+            params: vec![ParamDef {
+                name: "bearing".into(),
+                kind: PolicyType::Choice {
+                    options: knowledge::BEARING_NAMES
+                        .iter()
+                        .map(|b| (*b).to_string())
+                        .collect(),
+                },
+            }],
+            cost: soc.cost_scout,
+            summary: "Send a party out from the seat to walk a bearing and map what it crosses; \
+                      the map updates when they return — if they return."
+                .into(),
         },
         ActionDef {
             key: COMMISSION.into(),

@@ -7,6 +7,7 @@ use cohorts::CohortDrive;
 use directive_schema::DirectiveEntry;
 use economy::Economy;
 use fauna::Fauna;
+use knowledge::WorldKnowledge;
 use nations::WorldNations;
 use policy::Registry;
 use sim_clock::{SimClock, is_month_boundary};
@@ -35,6 +36,8 @@ pub struct World {
     pub tuning: Tuning,
     /// Every lever and action alive in this world (docs/20-open-directives.md).
     pub registry: Registry,
+    /// What each nation has actually seen, and the parties afield (docs/22).
+    pub knowledge: WorldKnowledge,
     clock: SimClock,
     entries: Vec<DirectiveEntry>,
     next_entry: usize,
@@ -76,6 +79,7 @@ impl World {
             cohorts: u32::try_from(all_cohorts.len()).expect("cohort count fits u32"),
             population: all_cohorts.total_population(),
         });
+        let knowledge = WorldKnowledge::new(cells, nations.nations.iter().map(|n| n.id));
         let mut entries = config.directives.clone();
         entries.sort_by_key(|e| e.tick); // stable: same-tick entries keep input order
         let mut world = Self {
@@ -90,10 +94,13 @@ impl World {
             table,
             tuning,
             registry,
+            knowledge,
             clock: SimClock::new(),
             entries,
             next_entry: 0,
         };
+        // The world starts dark: each nation knows its seat and surroundings.
+        world.refresh_home_knowledge(Tick::ZERO);
         world.apply_due(Tick::ZERO);
         world
     }
@@ -103,10 +110,12 @@ impl World {
         self.clock.tick()
     }
 
-    /// Advance exactly one tick: due directives, then monthly systems.
+    /// Advance exactly one tick: due directives, parties afield, then
+    /// monthly systems.
     pub fn step(&mut self) {
         let tick = self.clock.advance();
         self.apply_due(tick);
+        self.step_scouts(tick);
         if is_month_boundary(tick) {
             self.close_month(tick);
         }
@@ -119,6 +128,7 @@ impl World {
         let food = self.harvest(tick);
         let delta = self.demography(tick, &food);
         self.movement(tick, &food);
+        self.refresh_home_knowledge(tick);
         self.log.push(Event::MonthClosed {
             tick,
             births: delta.births,
@@ -221,14 +231,18 @@ impl World {
             let potential = |t: usize| economy::potential(fields, wild, flora_live, t, sub);
             nations::autopilot::tick_month(
                 tick,
+                self.seed,
                 &mut self.nations,
                 fields,
                 self.table,
                 &mut self.cohorts,
+                &mut self.knowledge,
                 &mut self.log,
                 &potential,
                 &food.starving_moves,
+                &food.hungry,
                 &self.tuning.society,
+                &self.tuning.exploration,
             );
         }
         let moves: Vec<(world_schema::TileId, world_schema::TileId)> = self
@@ -252,45 +266,12 @@ impl World {
                 &mut self.nations,
                 &self.genesis.fields,
                 &self.registry,
+                &mut self.knowledge,
                 &mut self.log,
                 &self.tuning.society,
+                &self.tuning.exploration,
             );
             self.next_entry += 1;
         }
-    }
-
-    /// Write the council + world reports for the current tick. The
-    /// directory is cleared first so a vanished nation can't leave a stale
-    /// report behind to mislead its overseer.
-    pub fn write_reports(&self, dir: &std::path::Path) {
-        let now = self.tick();
-        let _ = std::fs::remove_dir_all(dir);
-        std::fs::create_dir_all(dir).expect("create report directory");
-        for nation in &self.nations.nations {
-            let report = readouts::nation_report(
-                nation.id,
-                &self.nations,
-                &self.genesis.fields,
-                &self.fauna,
-                &self.flora_live,
-                &self.economy,
-                self.table,
-                &self.cohorts,
-                &self.log,
-                now,
-                &self.registry,
-                &self.tuning,
-            );
-            std::fs::write(dir.join(format!("nation-{}.md", nation.id.0)), report)
-                .expect("write nation report");
-        }
-        let world_summary = readouts::world_report(
-            &self.nations,
-            &self.genesis.fields,
-            self.table,
-            &self.cohorts,
-            now,
-        );
-        std::fs::write(dir.join("world.md"), world_summary).expect("write world report");
     }
 }

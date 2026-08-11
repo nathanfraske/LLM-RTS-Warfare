@@ -4,6 +4,7 @@
 
 mod charter;
 pub mod chronicle;
+mod lands;
 mod sections;
 
 use std::fmt::Write as _;
@@ -12,6 +13,7 @@ use chronicle::chronicle;
 use cohorts::{CohortKey, Cohorts};
 use economy::Economy;
 use fauna::Fauna;
+use knowledge::WorldKnowledge;
 use nations::WorldNations;
 use policy::Registry;
 use sim_events::EventLog;
@@ -43,6 +45,7 @@ pub fn nation_report(
     log: &EventLog,
     now: Tick,
     registry: &Registry,
+    known: &WorldKnowledge,
     tun: &Tuning,
 ) -> String {
     let nation = world
@@ -78,7 +81,7 @@ pub fn nation_report(
         &mut out, nation_id, world, fields, wild, flora_live, econ, tun,
     );
     sections::works(&mut out, nation_id, world);
-    sections::frontier(&mut out, nation_id, world, fields, wild, flora_live, tun);
+    lands::known_lands(&mut out, nation_id, world, fields, known, now, tun);
     sections::known_peoples(&mut out, nation_id, world, fields, table);
 
     let _ = writeln!(out, "\n## Chronicle (our recent history)\n");

@@ -6,6 +6,8 @@ pub mod autopilot;
 pub mod directives;
 pub mod mandate;
 pub mod registry;
+mod relocation;
+mod settlement;
 pub mod works;
 
 use policy::{PolicyTree, Registry};

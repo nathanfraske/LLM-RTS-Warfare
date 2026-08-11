@@ -43,6 +43,7 @@ See [01a-foundation](docs/01a-foundation.md) for bootstrap from a bare machine.
 | [19-ecology-and-subsistence](docs/19-ecology-and-subsistence.md) | The living world — fauna food webs, five subsistence channels, emergent ways of life |
 | [20-open-directives](docs/20-open-directives.md) | No authored verb list — the self-describing policy & action registry |
 | [21-authored-floor](docs/21-authored-floor.md) | Where emergence stops — the floor rule, the three tests, the floors per domain |
+| [22-knowledge-and-discovery](docs/22-knowledge-and-discovery.md) | The map is a memory — scouts, staleness, motivated movement, encounter-based contact |
 
 ## Stack (decided)
 
