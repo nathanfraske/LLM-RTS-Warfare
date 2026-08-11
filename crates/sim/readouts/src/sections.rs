@@ -9,6 +9,7 @@ use economy::Economy;
 use economy::channels::{CHANNEL_NAMES, CHANNELS, LABOR_KEYS};
 use fauna::Fauna;
 use nations::WorldNations;
+use regolith::Regolith;
 use species::Species;
 use tuning::Tuning;
 use world_map::{WorldFields, tiles};
@@ -98,6 +99,7 @@ pub(crate) fn labor(
     wild: &Fauna,
     flora_live: &[u8],
     sky: &Climate,
+    ground: &Regolith,
     econ: &Economy,
     tun: &Tuning,
 ) {
@@ -150,6 +152,7 @@ Food per worker per month, by tile:
             flora_live,
             &te,
             sky,
+            ground,
             t.0 as usize,
             &tun.subsistence,
             &tun.weather,

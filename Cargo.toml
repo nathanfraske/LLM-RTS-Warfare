@@ -29,6 +29,7 @@ policy = { path = "crates/schema/policy" }
 knowledge = { path = "crates/sim/knowledge" }
 anatomy = { path = "crates/sim/anatomy" }
 climate = { path = "crates/sim/climate" }
+regolith = { path = "crates/sim/regolith" }
 sim-clock = { path = "crates/sim/sim-clock" }
 sim-events = { path = "crates/sim/sim-events" }
 world-map = { path = "crates/sim/world-map" }

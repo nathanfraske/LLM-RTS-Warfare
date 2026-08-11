@@ -47,6 +47,7 @@ fn the_world_starts_dark() {
         &world.fauna,
         &world.flora_live,
         &world.climate,
+        &world.regolith,
         &world.economy,
         world.table,
         &world.cohorts,

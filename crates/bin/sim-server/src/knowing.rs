@@ -22,6 +22,7 @@ impl World {
         let wild = &self.fauna;
         let flora_live = &self.flora_live;
         let sky = &self.climate;
+        let ground = &self.regolith;
         let sub = &self.tuning.subsistence;
         let wx = &self.tuning.weather;
         let owner = &self.nations.owner;
@@ -29,7 +30,7 @@ impl World {
         let hostile_fit = Quantity::from_num(self.tuning.exploration.hostile_fit);
         let sample = |t: usize| {
             (
-                economy::potential(fields, wild, flora_live, sky, t, sub, wx),
+                economy::potential(fields, wild, flora_live, sky, ground, t, sub, wx),
                 owner[t],
             )
         };
@@ -58,12 +59,13 @@ impl World {
         let wild = &self.fauna;
         let flora_live = &self.flora_live;
         let sky = &self.climate;
+        let ground = &self.regolith;
         let sub = &self.tuning.subsistence;
         let wx = &self.tuning.weather;
         let owner = &self.nations.owner;
         let sample = |t: usize| {
             (
-                economy::potential(fields, wild, flora_live, sky, t, sub, wx),
+                economy::potential(fields, wild, flora_live, sky, ground, t, sub, wx),
                 owner[t],
             )
         };

@@ -11,6 +11,7 @@ use fauna::Fauna;
 use knowledge::WorldKnowledge;
 use nations::WorldNations;
 use policy::Registry;
+use regolith::Regolith;
 use sim_clock::{SimClock, is_month_boundary};
 use sim_events::{Event, EventLog, WorldSeed};
 use tuning::Tuning;
@@ -33,6 +34,8 @@ pub struct World {
     pub flora_live: Vec<u8>,
     /// The sky and the snow: seasonal forcing and the water cycle (docs/26).
     pub climate: Climate,
+    /// The ground itself: composition, weathering, wash (docs/27).
+    pub regolith: Regolith,
     pub economy: Economy,
     pub log: EventLog,
     pub table: &'static [species::Species],
@@ -67,6 +70,7 @@ impl World {
         let all_cohorts = nations::found_cohorts(seed, &nations, &tuning.society);
         let flora_live = genesis.flora.density.clone();
         let sky = Climate::genesis(&genesis.fields, &tuning.weather, &tuning.seasons);
+        let ground = Regolith::genesis(&genesis.fields, &genesis.flora.density, &tuning.ground);
         let wild = Fauna::genesis(
             seed,
             &genesis.fields,
@@ -100,6 +104,7 @@ impl World {
             fauna: wild,
             flora_live,
             climate: sky,
+            regolith: ground,
             economy: Economy::default(),
             log,
             table,
@@ -161,24 +166,7 @@ impl World {
             let WorldNations { works, owner, .. } = &mut self.nations;
             works.tick_month(owner, tick, &mut self.log);
         }
-        self.climate.tick_month(
-            &self.genesis.fields,
-            tick.0 / 720,
-            &self.tuning.weather,
-            &self.tuning.seasons,
-        );
-        flora::regrow_month(
-            &mut self.flora_live,
-            &self.genesis.flora.density,
-            self.tuning.ecology.regrow_divisor,
-            &self.climate.growth,
-        );
-        fauna::dynamics::tick_month(
-            &mut self.fauna,
-            &self.genesis.fields,
-            &mut self.flora_live,
-            &self.tuning.ecology,
-        );
+        self.breathe(tick);
     }
 
     /// People extract, eat, and store; hunger becomes famine events.
@@ -189,6 +177,7 @@ impl World {
             &mut self.fauna,
             &mut self.flora_live,
             &self.climate,
+            &self.regolith,
             &self.cohorts,
             &self.tuning,
         );
@@ -247,10 +236,11 @@ impl World {
             let wild = &self.fauna;
             let flora_live = &self.flora_live;
             let sky = &self.climate;
+            let ground = &self.regolith;
             let sub = &self.tuning.subsistence;
             let wx = &self.tuning.weather;
             let potential =
-                |t: usize| economy::potential(fields, wild, flora_live, sky, t, sub, wx);
+                |t: usize| economy::potential(fields, wild, flora_live, sky, ground, t, sub, wx);
             nations::autopilot::tick_month(
                 tick,
                 self.seed,

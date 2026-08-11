@@ -83,6 +83,7 @@ pub(crate) fn rain_snow_and_gate(
         if fields.elevation[tile] < 0 {
             climate.snowpack[tile] = 0;
             climate.growth[tile] = 0;
+            climate.delivered[tile] = 0;
             continue;
         }
         let (x, y) = (tile % size, tile / size);
@@ -118,6 +119,7 @@ pub(crate) fn rain_snow_and_gate(
             delivered += u32::from(wx.riverine_water);
         }
 
+        climate.delivered[tile] = u16::try_from(delivered.min(60_000)).expect("capped");
         let span = i32::from(wx.growth_warm_deci) - i32::from(wx.growth_cold_deci);
         let warmth =
             ((i32::from(t) - i32::from(wx.growth_cold_deci)) * 1000 / span.max(1)).clamp(0, 1000);

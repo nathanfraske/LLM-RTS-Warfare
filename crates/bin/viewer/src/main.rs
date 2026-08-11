@@ -8,6 +8,7 @@ mod critters;
 mod feed;
 mod fogview;
 mod folk;
+mod frame;
 mod hud;
 mod layers;
 mod localfolk;

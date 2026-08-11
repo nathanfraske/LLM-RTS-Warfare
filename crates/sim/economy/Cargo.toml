@@ -15,6 +15,7 @@ cohorts = { workspace = true }
 nations = { workspace = true }
 fauna = { workspace = true }
 climate = { workspace = true }
+regolith = { workspace = true }
 
 [dev-dependencies]
 flora = { workspace = true }

@@ -17,6 +17,7 @@ use fauna::Fauna;
 use knowledge::WorldKnowledge;
 use nations::WorldNations;
 use policy::Registry;
+use regolith::Regolith;
 use sim_events::EventLog;
 use species::Species;
 use tuning::Tuning;
@@ -41,6 +42,7 @@ pub fn nation_report(
     wild: &Fauna,
     flora_live: &[u8],
     sky: &Climate,
+    ground: &Regolith,
     econ: &Economy,
     table: &[Species],
     all_cohorts: &Cohorts,
@@ -80,7 +82,7 @@ pub fn nation_report(
     );
     sections::territory(&mut out, nation_id, world, fields, econ, all_cohorts);
     sections::labor(
-        &mut out, nation_id, world, fields, wild, flora_live, sky, econ, tun,
+        &mut out, nation_id, world, fields, wild, flora_live, sky, ground, econ, tun,
     );
     sections::works(&mut out, nation_id, world);
     lands::known_lands(&mut out, nation_id, world, fields, known, now, tun);

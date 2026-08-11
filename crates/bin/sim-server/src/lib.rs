@@ -5,6 +5,7 @@
 mod knowing;
 pub mod registry;
 mod reporting;
+mod wilds;
 pub mod world;
 
 use std::path::PathBuf;

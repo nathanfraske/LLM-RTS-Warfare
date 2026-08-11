@@ -19,6 +19,7 @@ impl World {
                 &self.fauna,
                 &self.flora_live,
                 &self.climate,
+                &self.regolith,
                 &self.economy,
                 self.table,
                 &self.cohorts,

@@ -14,6 +14,13 @@ pub fn terrain_image(world: &World) -> ColorImage {
     for i in 0..size * size {
         let (mut r, mut g, mut b) = palette::terrain(&world.genesis, i);
         if world.genesis.fields.elevation[i] >= 0 {
+            // What the ground is made of decides its color (docs/27);
+            // living vegetation greens it back over.
+            let (gr, gg, gb) = ground_color(world, i);
+            let veg = u32::from(world.flora_live[i]).min(255) * 60 / 100;
+            r = blend(gr, 52, veg);
+            g = blend(gg, 108, veg);
+            b = blend(gb, 58, veg);
             // The turning year on the ground (docs/26): snow whitens the
             // heights, and low growth browns the green.
             let snow = u32::from(world.climate.snowpack[i]).min(300);
@@ -35,6 +42,24 @@ pub fn terrain_image(world: &World) -> ColorImage {
         rgb.extend_from_slice(&[r, g, b]);
     }
     ColorImage::from_rgb([size, size], &rgb)
+}
+
+/// The regolith's own color: a weighted blend of what it is made of.
+fn ground_color(world: &World, i: usize) -> (u8, u8, u8) {
+    let reg = &world.regolith;
+    let parts = [
+        (u32::from(reg.rock[i]), (126u32, 124u32, 128u32)),
+        (u32::from(reg.coarse[i]), (152, 140, 120)),
+        (u32::from(reg.sand[i]), (216, 194, 140)),
+        (u32::from(reg.fines[i]), (150, 118, 92)),
+        (u32::from(reg.organic[i]), (92, 78, 56)),
+    ];
+    let total: u32 = parts.iter().map(|(w, _)| w).sum::<u32>().max(1);
+    let mix = |pick: fn(&(u32, u32, u32)) -> u32| {
+        u8::try_from(parts.iter().map(|(w, c)| w * pick(c)).sum::<u32>() / total)
+            .expect("weighted average of u8 channels")
+    };
+    (mix(|c| c.0), mix(|c| c.1), mix(|c| c.2))
 }
 
 /// Move `from` toward `to` by `k`/255.

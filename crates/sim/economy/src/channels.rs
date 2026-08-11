@@ -6,6 +6,7 @@ use crate::TileEconomy;
 use climate::Climate;
 use fauna::Fauna;
 use nations::works::Works;
+use regolith::Regolith;
 use tuning::{Ecology, Society, Subsistence, Weather};
 use world_map::WorldFields;
 use world_schema::Quantity;
@@ -59,6 +60,7 @@ pub fn extract(
     econ: &mut TileEconomy,
     works: &Works,
     sky: &Climate,
+    ground: &Regolith,
     tile: usize,
     sub: &Subsistence,
     eco: &Ecology,
@@ -98,9 +100,10 @@ pub fn extract(
     out.by[2] = wild.fish(fields, tile, crew * Quantity::from_num(sub.fish_eff), eco);
 
     // Cultivate: worthless until establishment is built; then the best
-    // yield-per-land anywhere fertile. Farmstead works multiply it.
+    // yield-per-land anywhere fertile. The fertility is the ground's own
+    // (docs/27): what the silt and the soil say, this month.
     let crew = workers * share[3];
-    let fert = Quantity::from_num(fields.cell_fertility[tile]) / Quantity::from_num(255);
+    let fert = Quantity::from_num(ground.fertility(tile)) / Quantity::from_num(255);
     out.by[3] = crew
         * Quantity::from_num(sub.cultivate_eff)
         * fert
@@ -145,6 +148,7 @@ pub fn marginal(
     flora_live: &[u8],
     econ: &TileEconomy,
     sky: &Climate,
+    ground: &Regolith,
     tile: usize,
     sub: &Subsistence,
     wx: &Weather,
@@ -154,7 +158,7 @@ pub fn marginal(
             / Quantity::from_num(1000);
     let growth = sky.growth_frac(tile);
     let flora_q = Quantity::from_num(flora_live[tile]) / Quantity::from_num(255);
-    let fert = Quantity::from_num(fields.cell_fertility[tile]) / Quantity::from_num(255);
+    let fert = Quantity::from_num(ground.fertility(tile)) / Quantity::from_num(255);
     let hunt_stock =
         (wild.huntable(tile) / Quantity::from_num(sub.hunt_stock_norm)).min(Quantity::ONE);
     let fish_stock =
@@ -178,17 +182,19 @@ pub fn marginal(
 /// One comparable per-worker number for a tile nobody lives on yet —
 /// steers splits, moves, and the frontier table.
 #[must_use]
+#[allow(clippy::too_many_arguments)]
 pub fn potential(
     fields: &WorldFields,
     wild: &Fauna,
     flora_live: &[u8],
     sky: &Climate,
+    ground: &Regolith,
     tile: usize,
     sub: &Subsistence,
     wx: &Weather,
 ) -> Quantity {
     let bare = TileEconomy::default();
-    let m = marginal(fields, wild, flora_live, &bare, sky, tile, sub, wx);
+    let m = marginal(fields, wild, flora_live, &bare, sky, ground, tile, sub, wx);
     let mut sorted = m;
     sorted.sort_unstable_by(|a, b| b.cmp(a));
     // The two best channels a newcomer band could actually run.
@@ -229,6 +235,7 @@ mod tests {
         // economics read clean.
         let mut sky = Climate::genesis(&fields, &wx, &se);
         sky.tick_month(&fields, u64::from(se.warm_month), &wx, &se);
+        let ground = Regolith::genesis(&fields, &flora, &tuning::Ground::default());
         let wild = fauna::Fauna::genesis(
             sim_events::WorldSeed(7),
             &fields,
@@ -239,7 +246,7 @@ mod tests {
 
         // River tile with stocked waters: fishing must top the table.
         let bare = TileEconomy::default();
-        let river = marginal(&fields, &wild, &flora, &bare, &sky, 0, &sub, &wx);
+        let river = marginal(&fields, &wild, &flora, &bare, &sky, &ground, 0, &sub, &wx);
         let best_river = (0..CHANNELS).max_by_key(|&i| river[i].to_bits()).unwrap();
         assert_eq!(CHANNEL_NAMES[best_river], "fish");
 
@@ -248,13 +255,13 @@ mod tests {
             establishment: Quantity::ONE,
             ..TileEconomy::default()
         };
-        let fertile = marginal(&fields, &wild, &flora, &farmed, &sky, 1, &sub, &wx);
+        let fertile = marginal(&fields, &wild, &flora, &farmed, &sky, &ground, 1, &sub, &wx);
         let best_fertile = (0..CHANNELS).max_by_key(|&i| fertile[i].to_bits()).unwrap();
         assert_eq!(CHANNEL_NAMES[best_fertile], "cultivate");
 
         // The same fertile tile unestablished must NOT rank cultivation first —
         // agrarianism is an investment, not a default.
-        let unfarmed = marginal(&fields, &wild, &flora, &bare, &sky, 1, &sub, &wx);
+        let unfarmed = marginal(&fields, &wild, &flora, &bare, &sky, &ground, 1, &sub, &wx);
         let best_unfarmed = (0..CHANNELS)
             .max_by_key(|&i| unfarmed[i].to_bits())
             .unwrap();

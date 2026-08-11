@@ -4,38 +4,38 @@
 
 use cohorts::CohortKey;
 use eframe::egui::{self, Rect, TextureHandle, TextureOptions, Vec2};
-use sim_events::Event;
+
 use sim_server::{RunConfig, World};
 use world_map::tiles;
 use world_schema::TileId;
 
 use crate::camera::Camera;
-use crate::feed::{self, Line};
+use crate::feed::Line;
 use crate::folk::Folk;
 use crate::localview::LocalView;
 use crate::{hud, layers};
 
-const MAX_TICKS_PER_FRAME: u64 = 30_000;
-const FEED_CAP: usize = 400;
-
 pub struct App {
-    world: World,
-    cam: Camera,
-    local: Option<LocalView>,
-    paused: bool,
-    ticks_per_sec: f64,
-    tick_debt: f64,
-    terrain: TextureHandle,
-    territory: TextureHandle,
-    territory_dirty: bool,
+    pub(crate) world: World,
+    pub(crate) cam: Camera,
+    pub(crate) local: Option<LocalView>,
+    pub(crate) paused: bool,
+    pub(crate) ticks_per_sec: f64,
+    pub(crate) tick_debt: f64,
+    pub(crate) terrain: TextureHandle,
+    pub(crate) territory: TextureHandle,
+    pub(crate) territory_dirty: bool,
     /// The month the terrain texture was last painted for (seasonal tint).
-    terrain_month: u64,
-    fog: crate::fogview::FogView,
-    waters: crate::waters::Waters,
-    seen_events: usize,
-    feed: Vec<Line>,
-    folk: Folk,
-    selected: Option<TileId>,
+    pub(crate) terrain_month: u64,
+    /// Relief against the live sun (docs/28), rebuilt as the hour turns.
+    pub(crate) shade: TextureHandle,
+    pub(crate) shade_hour: u64,
+    pub(crate) fog: crate::fogview::FogView,
+    pub(crate) waters: crate::waters::Waters,
+    pub(crate) seen_events: usize,
+    pub(crate) feed: Vec<Line>,
+    pub(crate) folk: Folk,
+    pub(crate) selected: Option<TileId>,
 }
 
 impl App {
@@ -51,6 +51,11 @@ impl App {
             layers::territory_image(&world),
             TextureOptions::NEAREST,
         );
+        let shade = cc.egui_ctx.load_texture(
+            "shade",
+            crate::sky::shade_image(&world),
+            TextureOptions::LINEAR,
+        );
         let waters = crate::waters::Waters::new(&world);
         let mut app = Self {
             cam: Camera::fit(world.genesis.fields.size, Vec2::new(1200.0, 800.0)),
@@ -63,6 +68,8 @@ impl App {
             territory,
             territory_dirty: false,
             terrain_month: 0,
+            shade,
+            shade_hour: 0,
             fog: crate::fogview::FogView::default(),
             waters,
             seen_events: 0,
@@ -72,53 +79,6 @@ impl App {
         };
         app.drain_events();
         app
-    }
-
-    fn advance(&mut self, dt: f64) {
-        if self.paused {
-            return;
-        }
-        self.tick_debt += self.ticks_per_sec * dt;
-        let mut steps = self.tick_debt.floor() as u64;
-        self.tick_debt -= steps as f64;
-        steps = steps.min(MAX_TICKS_PER_FRAME);
-        for _ in 0..steps {
-            self.world.step();
-        }
-        if steps > 0 {
-            self.drain_events();
-        }
-    }
-
-    /// Pull new events into the feed, caravans, and overlay refresh.
-    fn drain_events(&mut self) {
-        let fresh: Vec<Event> = self
-            .world
-            .log
-            .iter()
-            .skip(self.seen_events)
-            .cloned()
-            .collect();
-        self.seen_events = self.world.log.len();
-        for event in fresh {
-            match &event {
-                Event::TileSettled {
-                    nation, from, tile, ..
-                } => {
-                    self.folk
-                        .spawn_caravan(&self.world, from.0, tile.0, nation.0);
-                    self.territory_dirty = true;
-                }
-                Event::NationSpawned { .. } => self.territory_dirty = true,
-                _ => {}
-            }
-            if let Some(line) = feed::describe(&event, &self.world) {
-                self.feed.push(line);
-            }
-        }
-        if self.feed.len() > FEED_CAP {
-            self.feed.drain(..self.feed.len() - FEED_CAP);
-        }
     }
 
     /// Open the person-scale view of a tile.
@@ -174,6 +134,7 @@ impl App {
         );
         let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
         painter.image(self.terrain.id(), map_rect, uv, egui::Color32::WHITE);
+        painter.image(self.shade.id(), map_rect, uv, egui::Color32::WHITE);
         painter.image(self.territory.id(), map_rect, uv, egui::Color32::WHITE);
         self.waters.draw(&self.world, &self.cam, &painter, rect);
         self.fog.draw(&painter, map_rect, uv);
@@ -235,19 +196,7 @@ impl eframe::App for App {
         if !self.paused {
             self.folk.update(dt as f32);
         }
-        if self.territory_dirty {
-            self.territory.set(
-                layers::territory_image(&self.world),
-                TextureOptions::NEAREST,
-            );
-            self.territory_dirty = false;
-        }
-        let month = self.world.tick().0 / 720;
-        if month != self.terrain_month {
-            self.terrain
-                .set(layers::terrain_image(&self.world), TextureOptions::NEAREST);
-            self.terrain_month = month;
-        }
+        self.refresh_textures();
 
         self.fog.refresh(ui.ctx(), &self.world);
 
@@ -284,7 +233,8 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ui, |ui| {
             if let Some(local) = self.local.as_mut() {
                 let night = crate::sky::local_night(&self.world, local.tile.0);
-                local.canvas(ui, dt as f32, self.paused, night);
+                let shadow = crate::sky::cast(&self.world);
+                local.canvas(ui, dt as f32, self.paused, night, shadow);
             } else {
                 self.world_canvas(ui, dt as f32);
             }

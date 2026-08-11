@@ -891,6 +891,7 @@ dependencies = [
  "flora",
  "nations",
  "policy",
+ "regolith",
  "sim-events",
  "species",
  "tuning",
@@ -2793,6 +2794,7 @@ dependencies = [
  "knowledge",
  "nations",
  "policy",
+ "regolith",
  "sim-events",
  "species",
  "tuning",
@@ -2825,6 +2827,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07507be7b4a5f9f26eeb41eeaebb1f5a7ff29dfb29739facc21d35bf8b11c21e"
 dependencies = [
  "bitflags 2.13.1",
+]
+
+[[package]]
+name = "regolith"
+version = "0.0.1"
+dependencies = [
+ "climate",
+ "tuning",
+ "world-map",
+ "world-schema",
 ]
 
 [[package]]
@@ -3043,6 +3055,7 @@ dependencies = [
  "nations",
  "policy",
  "readouts",
+ "regolith",
  "serde_json",
  "sim-clock",
  "sim-events",

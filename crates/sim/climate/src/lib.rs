@@ -19,6 +19,9 @@ pub struct Climate {
     pub snowpack: Vec<u16>,
     /// This month's growth gate per tile, 0..=1000 (warmth × water).
     pub growth: Vec<u16>,
+    /// This month's delivered ground water per tile (rain + melt) — what
+    /// the wash reads (docs/27) and discharge will read (docs/26 W1).
+    pub delivered: Vec<u16>,
 }
 
 /// Seasonal temperature offset for a row, deci-°C: a latitude-scaled
@@ -79,6 +82,7 @@ impl Climate {
             wet: fields.moisture.clone(),
             snowpack: vec![0; cells],
             growth: vec![0; cells],
+            delivered: vec![0; cells],
         };
         climate.tick_month(fields, 0, wx, se);
         climate

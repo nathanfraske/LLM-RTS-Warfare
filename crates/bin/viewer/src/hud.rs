@@ -87,8 +87,11 @@ pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<TileId>) {
         "{:?} · elevation {} m · fertility {}",
         tiles::label(fields, tile),
         fields.elevation[tile],
-        fields.cell_fertility[tile],
+        world.regolith.fertility(tile),
     ));
+    if fields.elevation[tile] >= 0 {
+        ui.label(format!("Ground: {}", world.regolith.describe(tile)));
+    }
     if let Some(owner) = world.nations.owner[tile] {
         let nation = world
             .nations
@@ -129,6 +132,7 @@ pub fn inspector(ui: &mut egui::Ui, world: &World, selected: Option<TileId>) {
                 &world.fauna,
                 &world.flora_live,
                 &world.climate,
+                &world.regolith,
                 tile,
                 &world.tuning.subsistence,
                 &world.tuning.weather

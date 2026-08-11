@@ -16,6 +16,7 @@ use cohorts::{CohortKey, Cohorts};
 use fauna::Fauna;
 use nations::WorldNations;
 use policy::{PolicyDef, PolicyTree, PolicyType, PolicyValue};
+use regolith::Regolith;
 use tuning::{Society, Tuning};
 use world_map::WorldFields;
 use world_schema::{Quantity, TileId};
@@ -89,6 +90,7 @@ impl Economy {
         wild: &mut Fauna,
         flora_live: &mut [u8],
         sky: &Climate,
+        ground: &Regolith,
         all_cohorts: &Cohorts,
         tun: &Tuning,
     ) -> MonthFood {
@@ -118,6 +120,7 @@ impl Economy {
                 wild,
                 flora_live,
                 sky,
+                ground,
                 entry,
                 t as usize,
                 &tun.subsistence,
@@ -133,6 +136,7 @@ impl Economy {
                 entry,
                 &world.works,
                 sky,
+                ground,
                 t as usize,
                 &tun.subsistence,
                 &tun.ecology,
@@ -196,11 +200,13 @@ impl Economy {
 /// Sustainable per-worker food estimate for a tile — the number that steers
 /// splits, moves, and frontier tables. One formula, no vocabulary.
 #[must_use]
+#[allow(clippy::too_many_arguments)]
 pub fn potential(
     fields: &WorldFields,
     wild: &Fauna,
     flora_live: &[u8],
     sky: &Climate,
+    ground: &Regolith,
     tile: usize,
     sub: &tuning::Subsistence,
     wx: &tuning::Weather,
@@ -208,7 +214,7 @@ pub fn potential(
     if fields.elevation[tile] < 0 {
         return Quantity::ZERO;
     }
-    channels::potential(fields, wild, flora_live, sky, tile, sub, wx)
+    channels::potential(fields, wild, flora_live, sky, ground, tile, sub, wx)
 }
 
 /// Undirected weights follow marginal returns: shift a step toward the best
@@ -221,6 +227,7 @@ fn autopilot_weights(
     wild: &Fauna,
     flora_live: &[u8],
     sky: &Climate,
+    ground: &Regolith,
     tile_econ: &TileEconomy,
     tile: usize,
     sub: &tuning::Subsistence,
@@ -230,7 +237,9 @@ fn autopilot_weights(
     let free: Vec<usize> = (0..CHANNELS)
         .filter(|&i| !tree.directed(LABOR_KEYS[i]))
         .collect();
-    let marginal = channels::marginal(fields, wild, flora_live, tile_econ, sky, tile, sub, wx);
+    let marginal = channels::marginal(
+        fields, wild, flora_live, tile_econ, sky, ground, tile, sub, wx,
+    );
     let best = free
         .iter()
         .copied()

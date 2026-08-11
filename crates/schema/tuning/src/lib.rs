@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 mod bodies;
 mod ecology;
 mod exploration;
+mod ground;
 mod society;
 mod subsistence;
 mod weather;
@@ -18,6 +19,7 @@ mod weather;
 pub use bodies::Bodies;
 pub use ecology::Ecology;
 pub use exploration::Exploration;
+pub use ground::Ground;
 pub use society::Society;
 pub use subsistence::Subsistence;
 pub use weather::{Seasons, Sky, Weather};
@@ -33,4 +35,5 @@ pub struct Tuning {
     pub seasons: Seasons,
     pub weather: Weather,
     pub sky: Sky,
+    pub ground: Ground,
 }
